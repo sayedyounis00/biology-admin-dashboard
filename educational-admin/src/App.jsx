@@ -37,126 +37,10 @@ import {
 } from 'lucide-react';
 import './App.css';
 
-// --- DEMO DATA ---
-const DEMO_YEARS = [
-  { id: '68fc4c07-fee6-46a0-8128-f4c1b8dffafa', title: 'الصف الأول الثانوي', description: 'الصفوف الأساسية الأولى' },
-  { id: '677fc9f4-7a36-4dbe-8b29-808b1f5f2dab', title: 'الصف الثاني الثانوي', description: 'المناهج التمهيدية والتطبيقية' },
-  { id: 'c77a0cf6-cff9-46bb-8791-8247fa3c219f', title: 'الصف الثالث الثانوي', description: 'المرحلة الختامية والشهادة' }
-];
-
-const INITIAL_DEMO_COURSES = [
-  { id: 'c1', year_id: '68fc4c07-fee6-46a0-8128-f4c1b8dffafa', title: 'أساسيات علم الأحياء - الباب الأول', description: 'شرح كامل ومبسط للباب الأول في الكيمياء الحيوية والجزيئات البيولوجية الكبيرة للكربوهيدرات والليبيدات.', thumbnail_url: '', price: 0, is_published: true, created_at: '2026-06-15T22:07:33.858Z' },
-  { id: 'c2', year_id: '68fc4c07-fee6-46a0-8128-f4c1b8dffafa', title: 'التركيب الدقيق للخلية - الباب الثاني', description: 'دراسة تفصيلية للنواة، السيتوبلازم، والجسيمات الحية مع رسومات تفاعلية توضح تركيب الخلية النباتية والحيوانية.', thumbnail_url: '', price: 150, is_published: true, created_at: '2026-06-15T22:07:33.858Z' },
-  { id: 'c3', year_id: '677fc9f4-7a36-4dbe-8b29-808b1f5f2dab', title: 'التغذية والهضم في الكائنات الحية', description: 'شرح شامل لآلية التغذية الذاتية في النبات والتغذية غير الذاتية في الإنسان مع شرح الجهاز الهضمي.', thumbnail_url: '', price: 0, is_published: true, created_at: '2026-06-15T22:07:33.858Z' },
-  { id: 'c4', year_id: '677fc9f4-7a36-4dbe-8b29-808b1f5f2dab', title: 'النقل والتنفس الخلوي', description: 'دراسة شاملة لآليات النقل في النبات والإنسان، والجهاز الدوري، بالإضافة لآلية التنفس الخلوي الهوائي واللاهوائي.', thumbnail_url: '', price: 200, is_published: true, created_at: '2026-06-15T22:07:33.858Z' },
-  { id: 'c5', year_id: 'c77a0cf6-cff9-46bb-8791-8247fa3c219f', title: 'الدعامة والحركة في الكائنات الحية', description: 'البداية القوية للمنهج الأهم: شرح تفصيلي للهيكل العظمي في الإنسان والدعامة في النبات والانقباض العضلي.', thumbnail_url: '', price: 250, is_published: true, created_at: '2026-06-15T22:07:33.858Z' },
-  { id: 'c6', year_id: 'c77a0cf6-cff9-46bb-8791-8247fa3c219f', title: 'التنسيق الهرموني في الكائنات الحية', description: 'شرح تفصيلي لجهاز الغدد الصماء في الإنسان، الهرمونات النباتية، وجميع وظائف الهرمونات وتأثيراتها.', thumbnail_url: '', price: 300, is_published: true, created_at: '2026-06-15T22:07:33.858Z' },
-  { id: 'c7', year_id: '68fc4c07-fee6-46a0-8128-f4c1b8dffafa', title: 'المقدمة الشاملة للأساسيات', description: 'تأسيس شامل للطلاب المبتدئين في فهم المبادئ العلمية علم الأحياء.', thumbnail_url: '', price: 0, is_published: false, created_at: '2026-06-15T23:03:13.585Z' }
-];
-
-const INITIAL_DEMO_STUDENTS = [
-  { id: 'u1', full_name: 'عبد الرحمن محمد منصور', email: 'abd.rahman@gmail.com', phone: '01012345678', current_year_id: '68fc4c07-fee6-46a0-8128-f4c1b8dffafa', created_at: '2026-06-18T10:30:00Z' },
-  { id: 'u2', full_name: 'منى أحمد محمود السقا', email: 'mona.ahmed@yahoo.com', phone: '01198765432', current_year_id: '68fc4c07-fee6-46a0-8128-f4c1b8dffafa', created_at: '2026-06-19T14:45:00Z' },
-  { id: 'u3', full_name: 'يوسف طارق الحسين', email: 'youssef.tareq@gmail.com', phone: '01234567890', current_year_id: '677fc9f4-7a36-4dbe-8b29-808b1f5f2dab', created_at: '2026-06-18T11:15:00Z' },
-  { id: 'u4', full_name: 'خالد سليم عبد الله الصاوي', email: 'khaled.selim@gmail.com', phone: '01511223344', current_year_id: 'c77a0cf6-cff9-46bb-8791-8247fa3c219f', created_at: '2026-06-17T09:20:00Z' },
-  { id: 'u5', full_name: 'فاطمة حسن إبراهيم شلبي', email: 'fatma.hasan@hotmail.com', phone: '01055667788', current_year_id: 'c77a0cf6-cff9-46bb-8791-8247fa3c219f', created_at: '2026-06-16T16:00:00Z' }
-];
-
-const INITIAL_DEMO_ENROLLMENTS = [
-  { id: 'e1', user_id: 'u1', course_id: 'c1', enrolled_at: '2026-06-18T10:35:00Z' },
-  { id: 'e2', user_id: 'u2', course_id: 'c1', enrolled_at: '2026-06-19T14:50:00Z' },
-  { id: 'e3', user_id: 'u2', course_id: 'c2', enrolled_at: '2026-06-19T15:10:00Z' },
-  { id: 'e4', user_id: 'u3', course_id: 'c3', enrolled_at: '2026-06-18T11:20:00Z' },
-  { id: 'e5', user_id: 'u4', course_id: 'c5', enrolled_at: '2026-06-17T09:30:00Z' },
-  { id: 'e6', user_id: 'u5', course_id: 'c5', enrolled_at: '2026-06-16T16:10:00Z' },
-  { id: 'e7', user_id: 'u5', course_id: 'c6', enrolled_at: '2026-06-16T16:45:00Z' }
-];
-
-const INITIAL_DEMO_COURSE_REQUESTS = [
-  { id: 'cr1', user_id: 'u1', course_id: 'c2', status: 'pending', created_at: '2026-06-20T01:00:00Z' },
-  { id: 'cr2', user_id: 'u3', course_id: 'c4', status: 'pending', created_at: '2026-06-20T01:10:00Z' }
-];
-
-const INITIAL_DEMO_LESSONS = {
-  'c1': [
-    { id: 'l1-c1', course_id: 'c1', title: 'المحاضرة 1: مدخل علم الأحياء والجزيئات البيولوجية', content: 'شرح تمهيدي للكربوهيدرات وتفاعلات البلمرة.', video_url: 'https://vimeo.com/834857291', order_index: 0 },
-    { id: 'l2-c1', course_id: 'c1', title: 'المحاضرة 2: الليبيدات والبروتينات الكبيرة', content: 'تصنيف الدهون والأحماض الدهنية وبناء الأحماض الأمينية.', video_url: 'https://vimeo.com/834857312', order_index: 1 },
-    { id: 'l3-c1', course_id: 'c1', title: 'المحاضرة 3: الأحماض النووية وبناء الإنزيمات', content: 'الفرق بين DNA و RNA ودراسة تأثير درجة الحرارة على نشاط الإنزيم.', video_url: 'https://vimeo.com/834857345', order_index: 2 }
-  ],
-  'c2': [
-    { id: 'l1-c2', course_id: 'c2', title: 'المحاضرة 1: النظرية الخلوية والمكتشفين', content: 'شرح جهود روبرت هوك وفيرشو وليفنهوك في اكتشاف الخلية.', video_url: 'https://vimeo.com/834857390', order_index: 0 },
-    { id: 'l2-c2', course_id: 'c2', title: 'المحاضرة 2: تركيب الجدار الخلوي والغشاء البلازمي', content: 'توضيح النموذج الفسيفسائي السائل للغشاء الخلوي.', video_url: 'https://vimeo.com/834857399', order_index: 1 }
-  ],
-  'c3': [
-    { id: 'l1-c3', course_id: 'c3', title: 'المحاضرة 1: التغذية الذاتية وعملية البناء الضوئي', content: 'تركيب البلاستيدة الخضراء وآلية امتصاص الطاقة الضوئية.', video_url: 'https://vimeo.com/834857401', order_index: 0 }
-  ],
-  'c4': [
-    { id: 'l1-c4', course_id: 'c4', title: 'المحاضرة 1: النقل في النباتات الراقية', content: 'دور الخشب واللحاء في نقل الماء والمغذيات العضوية.', video_url: 'https://vimeo.com/834857405', order_index: 0 }
-  ],
-  'c5': [
-    { id: 'l1-c5', course_id: 'c5', title: 'المحاضرة 1: الدعامة الفسيولوجية والتركيبية في النبات', content: 'مفهوم الدعامة الفسيولوجية ودور الجدار الخلوي وضغط الامتلاء.', video_url: 'https://vimeo.com/834857410', order_index: 0 },
-    { id: 'l2-c5', course_id: 'c5', title: 'المحاضرة 2: الهيكل العظمي المحوري في الإنسان', content: 'شرح العمود الفقري، الجمجمة، والقفص الصدري بالتفصيل.', video_url: 'https://vimeo.com/834857422', order_index: 1 },
-    { id: 'l3-c5', course_id: 'c5', title: 'المحاضرة 3: المفاصل، الغضاريف، والأربطة', content: 'أنواع المفاصل الزلالية والليفية والغضروفية وأهم الأوتار.', video_url: 'https://vimeo.com/834857430', order_index: 2 }
-  ],
-  'c6': [
-    { id: 'l1-c6', course_id: 'c6', title: 'المحاضرة 1: الهرمونات في النباتات والأوكسينات', content: 'دور الأوكسينات وجذور اكتشاف الهرمونات النباتية على يد بويسن جنسن.', video_url: 'https://vimeo.com/834857440', order_index: 0 }
-  ],
-  'c7': [
-    { id: 'l1-c7', course_id: 'c7', title: 'المحاضرة 1: مقدمة في المستويات التركيبية لأجسام الكائنات الحية', content: 'تمهيد لطلبة الصف الأول الثانوي.', video_url: '', order_index: 0 }
-  ]
-};
-
-const INITIAL_DEMO_LESSON_PROGRESS = [
-  // student u1 completed c1: l1, l2
-  { id: 'p1', user_id: 'u1', lesson_id: 'l1-c1', completed: true, completed_at: '2026-06-18T11:00:00Z' },
-  { id: 'p2', user_id: 'u1', lesson_id: 'l2-c1', completed: true, completed_at: '2026-06-18T12:30:00Z' },
-  // student u2 completed c1: l1, l2, l3; c2: l1
-  { id: 'p3', user_id: 'u2', lesson_id: 'l1-c1', completed: true, completed_at: '2026-06-19T15:30:00Z' },
-  { id: 'p4', user_id: 'u2', lesson_id: 'l2-c1', completed: true, completed_at: '2026-06-19T16:00:00Z' },
-  { id: 'p5', user_id: 'u2', lesson_id: 'l3-c1', completed: true, completed_at: '2026-06-19T17:30:00Z' },
-  { id: 'p5-2', user_id: 'u2', lesson_id: 'l1-c2', completed: true, completed_at: '2026-06-19T18:00:00Z' },
-  // student u3 completed c3: l1
-  { id: 'p5-3', user_id: 'u3', lesson_id: 'l1-c3', completed: true, completed_at: '2026-06-18T12:00:00Z' },
-  // student u4 completed c5: l1, l2
-  { id: 'p6', user_id: 'u4', lesson_id: 'l1-c5', completed: true, completed_at: '2026-06-17T10:15:00Z' },
-  { id: 'p7', user_id: 'u4', lesson_id: 'l2-c5', completed: true, completed_at: '2026-06-17T14:30:00Z' },
-  // student u5 completed c5: l1, l2; c6: none
-  { id: 'p8', user_id: 'u5', lesson_id: 'l1-c5', completed: true, completed_at: '2026-06-16T18:00:00Z' },
-  { id: 'p9', user_id: 'u5', lesson_id: 'l2-c5', completed: true, completed_at: '2026-06-16T19:20:00Z' }
-];
-
-const INITIAL_DEMO_ENROLLMENT_COUNTS = {
-  'c1': 2, 'c2': 1, 'c3': 1, 'c4': 0, 'c5': 2, 'c6': 1, 'c7': 0
-};
-
-const DEMO_CHART_DATA = [
-  { label: '1 يونيو', value: 1200 },
-  { label: '3 يونيو', value: 1800 },
-  { label: '6 يونيو', value: 1500 },
-  { label: '9 يونيو', value: 2400 },
-  { label: '12 يونيو', value: 3100 },
-  { label: '15 يونيو', value: 2800 },
-  { label: '18 يونيو', value: 4200 },
-  { label: '21 يونيو', value: 5600 },
-  { label: '24 يونيو', value: 4900 },
-  { label: '27 يونيو', value: 6800 },
-  { label: '30 يونيو', value: 8400 }
-];
-
 function App() {
   const [activeTab, setActiveTab] = useState('overview');
-  const [isDemoMode, setIsDemoMode] = useState(true);
   const [dbConnected, setDbConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-
-  // --- DEMO STATE STORAGE ---
-  const [demoCourses, setDemoCourses] = useState(INITIAL_DEMO_COURSES);
-  const [demoStudents, setDemoStudents] = useState(INITIAL_DEMO_STUDENTS);
-  const [demoEnrollments, setDemoEnrollments] = useState(INITIAL_DEMO_ENROLLMENTS);
-  const [demoLessons, setDemoLessons] = useState(INITIAL_DEMO_LESSONS);
-  const [demoLessonProgress, setDemoLessonProgress] = useState(INITIAL_DEMO_LESSON_PROGRESS);
-  const [demoEnrollmentCounts, setDemoEnrollmentCounts] = useState(INITIAL_DEMO_ENROLLMENT_COUNTS);
-  const [demoCourseRequests, setDemoCourseRequests] = useState(INITIAL_DEMO_COURSE_REQUESTS);
 
   // --- LIVE DATABASE STATES ---
   const [liveCourses, setLiveCourses] = useState([]);
@@ -406,11 +290,11 @@ function App() {
     if (editingCourseId) {
       loadLessonsForCourse(editingCourseId);
     }
-  }, [editingCourseId, isDemoMode]);
+  }, [editingCourseId]);
 
   // Sync analytics selection if courses list changes
   useEffect(() => {
-    const list = isDemoMode ? demoCourses : liveCourses;
+    const list = liveCourses;
     if (list.length > 0) {
       // Find matching course or default to first
       const found = list.find(c => c.id === analyticsSelectedCourseId);
@@ -418,17 +302,17 @@ function App() {
         setAnalyticsSelectedCourseId(list[0].id);
       }
     }
-  }, [isDemoMode, demoCourses, liveCourses]);
+  }, [liveCourses]);
 
   // --- RESOLVE CURRENT STATE ---
-  const currentStudents = isDemoMode ? demoStudents : liveStudents;
-  const currentEnrollments = isDemoMode ? demoEnrollments : liveEnrollments;
-  const currentCourses = isDemoMode ? demoCourses : liveCourses;
-  const currentEnrollmentCounts = isDemoMode ? demoEnrollmentCounts : liveEnrollmentCounts;
-  const currentYears = isDemoMode ? DEMO_YEARS : years;
-  const currentLessons = isDemoMode ? null : liveLessons; // Demo lessons handled dynamically
-  const currentLessonProgress = isDemoMode ? demoLessonProgress : liveLessonProgress;
-  const currentCourseRequests = isDemoMode ? demoCourseRequests : liveCourseRequests;
+  const currentStudents = liveStudents;
+  const currentEnrollments = liveEnrollments;
+  const currentCourses = liveCourses;
+  const currentEnrollmentCounts = liveEnrollmentCounts;
+  const currentYears = years;
+  const currentLessons = liveLessons;
+  const currentLessonProgress = liveLessonProgress;
+  const currentCourseRequests = liveCourseRequests;
 
   // --- MATH & JOIN HELPERS ---
   const getYearTitle = (yearId) => {
@@ -449,11 +333,7 @@ function App() {
   };
 
   const getLessonsForCourse = (courseId) => {
-    if (isDemoMode) {
-      return demoLessons[courseId] || [];
-    } else {
-      return liveLessons.filter(l => l.course_id === courseId);
-    }
+    return liveLessons.filter(l => l.course_id === courseId);
   };
 
   const getLessonCompletionPercentage = (studentId, courseId) => {
@@ -474,171 +354,117 @@ function App() {
 
   // --- ACTIONS: GENERAL ---
   const handleTogglePublish = async (courseId, currentStatus) => {
-    if (isDemoMode) {
-      setDemoCourses(prev => prev.map(c => c.id === courseId ? { ...c, is_published: !currentStatus } : c));
+    setIsLoading(true);
+    const { error } = await supabase
+      .from('courses')
+      .update({ is_published: !currentStatus })
+      .eq('id', courseId);
+    
+    if (!error) {
+      await fetchLiveDatabaseState();
+      await fetchLiveStats();
     } else {
-      setIsLoading(true);
-      const { error } = await supabase
-        .from('courses')
-        .update({ is_published: !currentStatus })
-        .eq('id', courseId);
-      
-      if (!error) {
-        await fetchLiveDatabaseState();
-        await fetchLiveStats();
-      } else {
-        alert("خطأ في تحديث حالة النشر: " + error.message);
-      }
-      setIsLoading(false);
+      alert("خطأ في تحديث حالة النشر: " + error.message);
     }
+    setIsLoading(false);
   };
 
   const handleDeleteCourse = async (courseId) => {
     if (!confirm("هل أنت متأكد من حذف هذا الكورس نهائياً؟ سيتم حذف جميع المرفقات والاشتراكات والدروس التابعة له.")) return;
     
-    if (isDemoMode) {
-      setDemoCourses(prev => prev.filter(c => c.id !== courseId));
-    } else {
-      setIsLoading(true);
-      const { data: lessons } = await supabase.from('lessons').select('id').eq('course_id', courseId);
-      const lessonIds = lessons?.map(l => l.id) || [];
-      if (lessonIds.length > 0) {
-        await supabase.from('lesson_progress').delete().in('lesson_id', lessonIds);
-        await supabase.from('lessons').delete().eq('course_id', courseId);
-      }
-      await supabase.from('enrollments').delete().eq('course_id', courseId);
-      
-      const { error } = await supabase.from('courses').delete().eq('id', courseId);
-      if (!error) {
-        await fetchLiveDatabaseState();
-        await fetchLiveStats();
-        if (editingCourseId === courseId) setEditingCourseId(null);
-      } else {
-        alert("خطأ في حذف الكورس: " + error.message);
-      }
-      setIsLoading(false);
+    setIsLoading(true);
+    const { data: lessons } = await supabase.from('lessons').select('id').eq('course_id', courseId);
+    const lessonIds = lessons?.map(l => l.id) || [];
+    if (lessonIds.length > 0) {
+      await supabase.from('lesson_progress').delete().in('lesson_id', lessonIds);
+      await supabase.from('lessons').delete().eq('course_id', courseId);
     }
+    await supabase.from('enrollments').delete().eq('course_id', courseId);
+    
+    const { error } = await supabase.from('courses').delete().eq('id', courseId);
+    if (!error) {
+      await fetchLiveDatabaseState();
+      await fetchLiveStats();
+      if (editingCourseId === courseId) setEditingCourseId(null);
+    } else {
+      alert("خطأ في حذف الكورس: " + error.message);
+    }
+    setIsLoading(false);
   };
 
   const handleCreateCourse = async (e) => {
     e.preventDefault();
     if (!newCourseForm.title) return;
 
-    if (isDemoMode) {
-      const newC = {
-        id: 'c-' + Math.random().toString(36).substr(2, 9),
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('courses')
+      .insert({
         title: newCourseForm.title,
         description: newCourseForm.description,
-        year_id: newCourseForm.year_id || DEMO_YEARS[0].id,
+        year_id: newCourseForm.year_id || years[0]?.id,
         price: Number(newCourseForm.price) || 0,
-        thumbnail_url: newCourseForm.thumbnail_url,
-        is_published: false,
-        created_at: new Date().toISOString()
-      };
-      setDemoCourses(prev => [newC, ...prev]);
-      setDemoEnrollmentCounts(prev => ({ ...prev, [newC.id]: 0 }));
-      setIsNewCourseModalOpen(false);
-      setNewCourseForm({ title: '', description: '', year_id: DEMO_YEARS[0].id, price: 0, thumbnail_url: '' });
-      setEditingCourseId(newC.id);
-    } else {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('courses')
-        .insert({
-          title: newCourseForm.title,
-          description: newCourseForm.description,
-          year_id: newCourseForm.year_id || years[0]?.id,
-          price: Number(newCourseForm.price) || 0,
-          thumbnail_url: newCourseForm.thumbnail_url || null,
-          is_published: false
-        })
-        .select()
-        .single();
+        thumbnail_url: newCourseForm.thumbnail_url || null,
+        is_published: false
+      })
+      .select()
+      .single();
 
-      if (!error && data) {
-        await fetchLiveDatabaseState();
-        await fetchLiveStats();
-        setIsNewCourseModalOpen(false);
-        setNewCourseForm({ title: '', description: '', year_id: years[0]?.id, price: 0, thumbnail_url: '' });
-        setEditingCourseId(data.id);
-      } else {
-        alert("خطأ أثناء إنشاء الكورس: " + (error?.message || 'غير معروف'));
-      }
-      setIsLoading(false);
+    if (!error && data) {
+      await fetchLiveDatabaseState();
+      await fetchLiveStats();
+      setIsNewCourseModalOpen(false);
+      setNewCourseForm({ title: '', description: '', year_id: years[0]?.id, price: 0, thumbnail_url: '' });
+      setEditingCourseId(data.id);
+    } else {
+      alert("خطأ أثناء إنشاء الكورس: " + (error?.message || 'غير معروف'));
     }
+    setIsLoading(false);
   };
 
   // --- EDITOR SYSTEM FUNCTIONS ---
   const loadLessonsForCourse = async (courseId) => {
-    if (isDemoMode) {
-      const course = demoCourses.find(c => c.id === courseId);
-      if (course) {
-        setEditorCourseForm({
-          title: course.title,
-          description: course.description || '',
-          price: course.price,
-          year_id: course.year_id || '',
-          thumbnail_url: course.thumbnail_url || '',
-          is_published: course.is_published
-        });
-      }
-      setEditorLessons(demoLessons[courseId] || []);
-    } else {
-      setIsLoading(true);
-      const { data: course } = await supabase.from('courses').select('*').eq('id', courseId).single();
-      if (course) {
-        setEditorCourseForm({
-          title: course.title,
-          description: course.description || '',
-          price: course.price,
-          year_id: course.year_id || '',
-          thumbnail_url: course.thumbnail_url || '',
-          is_published: course.is_published
-        });
-      }
-      const { data: lessonsData } = await supabase.from('lessons').select('*').eq('course_id', courseId).order('order_index', { ascending: true });
-      setEditorLessons(lessonsData || []);
-      setIsLoading(false);
+    setIsLoading(true);
+    const { data: course } = await supabase.from('courses').select('*').eq('id', courseId).single();
+    if (course) {
+      setEditorCourseForm({
+        title: course.title,
+        description: course.description || '',
+        price: course.price,
+        year_id: course.year_id || '',
+        thumbnail_url: course.thumbnail_url || '',
+        is_published: course.is_published
+      });
     }
+    const { data: lessonsData } = await supabase.from('lessons').select('*').eq('course_id', courseId).order('order_index', { ascending: true });
+    setEditorLessons(lessonsData || []);
+    setIsLoading(false);
     setActiveLessonEditId(null);
   };
 
   const handleUpdateCourseDetails = async (e) => {
     e.preventDefault();
-    if (isDemoMode) {
-      setDemoCourses(prev => prev.map(c => c.id === editingCourseId ? {
-        ...c,
+    setIsLoading(true);
+    const { error } = await supabase
+      .from('courses')
+      .update({
         title: editorCourseForm.title,
         description: editorCourseForm.description,
         price: Number(editorCourseForm.price) || 0,
         year_id: editorCourseForm.year_id,
-        thumbnail_url: editorCourseForm.thumbnail_url,
+        thumbnail_url: editorCourseForm.thumbnail_url || null,
         is_published: editorCourseForm.is_published
-      } : c));
-      alert("تم حفظ تفاصيل الكورس بنجاح!");
-    } else {
-      setIsLoading(true);
-      const { error } = await supabase
-        .from('courses')
-        .update({
-          title: editorCourseForm.title,
-          description: editorCourseForm.description,
-          price: Number(editorCourseForm.price) || 0,
-          year_id: editorCourseForm.year_id,
-          thumbnail_url: editorCourseForm.thumbnail_url || null,
-          is_published: editorCourseForm.is_published
-        })
-        .eq('id', editingCourseId);
+      })
+      .eq('id', editingCourseId);
 
-      if (!error) {
-        alert("تم تعديل الكورس بنجاح!");
-        await fetchLiveDatabaseState();
-        await fetchLiveStats();
-      } else {
-        alert("خطأ في تحديث البيانات: " + error.message);
-      }
-      setIsLoading(false);
+    if (!error) {
+      alert("تم تعديل الكورس بنجاح!");
+      await fetchLiveDatabaseState();
+      await fetchLiveStats();
+    } else {
+      alert("خطأ في تحديث البيانات: " + error.message);
     }
+    setIsLoading(false);
   };
 
   const handleAddLesson = async () => {
@@ -650,67 +476,47 @@ function App() {
       order_index: nextIndex
     };
 
-    if (isDemoMode) {
-      const newL = {
-        ...initialLesson,
-        id: 'l-' + Math.random().toString(36).substr(2, 9),
-        course_id: editingCourseId
-      };
-      const updated = [...editorLessons, newL];
-      setEditorLessons(updated);
-      setDemoLessons(prev => ({ ...prev, [editingCourseId]: updated }));
-      handleOpenLessonEdit(newL);
-    } else {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from('lessons')
-        .insert({
-          course_id: editingCourseId,
-          ...initialLesson
-        })
-        .select()
-        .single();
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('lessons')
+      .insert({
+        course_id: editingCourseId,
+        ...initialLesson
+      })
+      .select()
+      .single();
 
-      if (!error && data) {
-        setEditorLessons(prev => [...prev, data]);
-        await fetchLiveDatabaseState();
-        handleOpenLessonEdit(data);
-      } else {
-        alert("خطأ في إضافة الدرس: " + error.message);
-      }
-      setIsLoading(false);
+    if (!error && data) {
+      setEditorLessons(prev => [...prev, data]);
+      await fetchLiveDatabaseState();
+      handleOpenLessonEdit(data);
+    } else {
+      alert("خطأ في إضافة الدرس: " + error.message);
     }
+    setIsLoading(false);
   };
 
   const handleDeleteLesson = async (lessonId) => {
     if (!confirm("هل أنت متأكد من حذف هذا الدرس؟")) return;
 
-    if (isDemoMode) {
-      const updated = editorLessons.filter(l => l.id !== lessonId).map((l, idx) => ({ ...l, order_index: idx }));
-      setEditorLessons(updated);
-      setDemoLessons(prev => ({ ...prev, [editingCourseId]: updated }));
-      setDemoLessonProgress(prev => prev.filter(p => p.lesson_id !== lessonId));
+    setIsLoading(true);
+    await supabase.from('lesson_progress').delete().eq('lesson_id', lessonId);
+    const { error } = await supabase.from('lessons').delete().eq('id', lessonId);
+    if (!error) {
+      const remaining = editorLessons.filter(l => l.id !== lessonId);
+      for (let i = 0; i < remaining.length; i++) {
+        if (remaining[i].order_index !== i) {
+          await supabase.from('lessons').update({ order_index: i }).eq('id', remaining[i].id);
+          remaining[i].order_index = i;
+        }
+      }
+      await fetchLiveDatabaseState();
+      setEditorLessons(remaining);
       if (activeLessonEditId === lessonId) setActiveLessonEditId(null);
     } else {
-      setIsLoading(true);
-      await supabase.from('lesson_progress').delete().eq('lesson_id', lessonId);
-      const { error } = await supabase.from('lessons').delete().eq('id', lessonId);
-      if (!error) {
-        const remaining = editorLessons.filter(l => l.id !== lessonId);
-        for (let i = 0; i < remaining.length; i++) {
-          if (remaining[i].order_index !== i) {
-            await supabase.from('lessons').update({ order_index: i }).eq('id', remaining[i].id);
-            remaining[i].order_index = i;
-          }
-        }
-        await fetchLiveDatabaseState();
-        setEditorLessons(remaining);
-        if (activeLessonEditId === lessonId) setActiveLessonEditId(null);
-      } else {
-        alert("خطأ في حذف الدرس: " + error.message);
-      }
-      setIsLoading(false);
+      alert("خطأ في حذف الدرس: " + error.message);
     }
+    setIsLoading(false);
   };
 
   const handleMoveLesson = async (index, direction) => {
@@ -730,15 +536,11 @@ function App() {
 
     setEditorLessons(list);
 
-    if (isDemoMode) {
-      setDemoLessons(prev => ({ ...prev, [editingCourseId]: list }));
-    } else {
-      setIsLoading(true);
-      await supabase.from('lessons').update({ order_index: list[index].order_index }).eq('id', list[index].id);
-      await supabase.from('lessons').update({ order_index: list[targetIndex].order_index }).eq('id', list[targetIndex].id);
-      await fetchLiveDatabaseState();
-      setIsLoading(false);
-    }
+    setIsLoading(true);
+    await supabase.from('lessons').update({ order_index: list[index].order_index }).eq('id', list[index].id);
+    await supabase.from('lessons').update({ order_index: list[targetIndex].order_index }).eq('id', list[targetIndex].id);
+    await fetchLiveDatabaseState();
+    setIsLoading(false);
   };
 
   const handleOpenLessonEdit = (lesson) => {
@@ -757,23 +559,16 @@ function App() {
       content: lessonEditForm.content || null
     };
 
-    if (isDemoMode) {
-      const updated = editorLessons.map(l => l.id === lessonId ? { ...l, ...fields } : l);
-      setEditorLessons(updated);
-      setDemoLessons(prev => ({ ...prev, [editingCourseId]: updated }));
+    setIsLoading(true);
+    const { error } = await supabase.from('lessons').update(fields).eq('id', lessonId);
+    if (!error) {
+      setEditorLessons(prev => prev.map(l => l.id === lessonId ? { ...l, ...fields } : l));
+      await fetchLiveDatabaseState();
       setActiveLessonEditId(null);
     } else {
-      setIsLoading(true);
-      const { error } = await supabase.from('lessons').update(fields).eq('id', lessonId);
-      if (!error) {
-        setEditorLessons(prev => prev.map(l => l.id === lessonId ? { ...l, ...fields } : l));
-        await fetchLiveDatabaseState();
-        setActiveLessonEditId(null);
-      } else {
-        alert("خطأ في حفظ التغييرات: " + error.message);
-      }
-      setIsLoading(false);
+      alert("خطأ في حفظ التغييرات: " + error.message);
     }
+    setIsLoading(false);
   };
 
   // --- ACTIONS: ENROLLMENTS ---
@@ -788,133 +583,82 @@ function App() {
       return;
     }
 
-    if (isDemoMode) {
-      const newE = {
-        id: 'e-' + Math.random().toString(36).substr(2, 9),
+    setIsLoading(true);
+    const { error } = await supabase
+      .from('enrollments')
+      .insert({
         user_id: newEnrollForm.user_id,
-        course_id: newEnrollForm.course_id,
-        enrolled_at: new Date().toISOString()
-      };
-      setDemoEnrollments(prev => [newE, ...prev]);
-      setDemoEnrollmentCounts(prev => ({
-        ...prev,
-        [newEnrollForm.course_id]: (prev[newEnrollForm.course_id] || 0) + 1
-      }));
+        course_id: newEnrollForm.course_id
+      });
+
+    if (!error) {
+      await fetchLiveDatabaseState();
+      await fetchLiveStats();
       setIsNewEnrollModalOpen(false);
       setNewEnrollForm({ user_id: '', course_id: '' });
       setEnrollStudentSearch('');
     } else {
-      setIsLoading(true);
-      const { error } = await supabase
-        .from('enrollments')
-        .insert({
-          user_id: newEnrollForm.user_id,
-          course_id: newEnrollForm.course_id
-        });
-
-      if (!error) {
-        await fetchLiveDatabaseState();
-        await fetchLiveStats();
-        setIsNewEnrollModalOpen(false);
-        setNewEnrollForm({ user_id: '', course_id: '' });
-        setEnrollStudentSearch('');
-      } else {
-        alert("حدث خطأ أثناء الاشتراك: " + error.message);
-      }
-      setIsLoading(false);
+      alert("حدث خطأ أثناء الاشتراك: " + error.message);
     }
+    setIsLoading(false);
   };
 
   const handleRevokeEnrollment = async (enrollId) => {
     if (!confirm("هل أنت متأكد من إلغاء هذا الاشتراك؟ سيفقد الطالب إمكانية الوصول إلى الكورس والدروس.")) return;
 
-    if (isDemoMode) {
-      const target = demoEnrollments.find(e => e.id === enrollId);
-      if (target) {
-        setDemoEnrollments(prev => prev.filter(e => e.id !== enrollId));
-        setDemoEnrollmentCounts(prev => ({
-          ...prev,
-          [target.course_id]: Math.max(0, (prev[target.course_id] || 1) - 1)
-        }));
-      }
+    setIsLoading(true);
+    const { error } = await supabase.from('enrollments').delete().eq('id', enrollId);
+    if (!error) {
+      await fetchLiveDatabaseState();
+      await fetchLiveStats();
     } else {
-      setIsLoading(true);
-      const { error } = await supabase.from('enrollments').delete().eq('id', enrollId);
-      if (!error) {
-        await fetchLiveDatabaseState();
-        await fetchLiveStats();
-      } else {
-        alert("خطأ في إلغاء الاشتراك: " + error.message);
-      }
-      setIsLoading(false);
+      alert("خطأ في إلغاء الاشتراك: " + error.message);
     }
+    setIsLoading(false);
   };
 
   const handleApproveRequest = async (requestId, userId, courseId) => {
-    if (isDemoMode) {
-      // 1. Update request status to 'approved' in demo
-      setDemoCourseRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'approved' } : r));
-      // 2. Insert enrollment in demo
-      const newE = {
-        id: 'e-' + Math.random().toString(36).substr(2, 9),
-        user_id: userId,
-        course_id: courseId,
-        enrolled_at: new Date().toISOString()
-      };
-      setDemoEnrollments(prev => [newE, ...prev]);
-      setDemoEnrollmentCounts(prev => ({
-        ...prev,
-        [courseId]: (prev[courseId] || 0) + 1
-      }));
-      alert("تم قبول الطلب وتفعيل الكورس بنجاح (وضع التجربة)!");
-    } else {
-      setIsLoading(true);
-      // 1. Insert into enrollments
-      const { error: enrollError } = await supabase.from('enrollments').insert({
-        user_id: userId,
-        course_id: courseId
-      });
-      if (enrollError) {
-        alert("حدث خطأ أثناء الاشتراك: " + enrollError.message);
-        setIsLoading(false);
-        return;
-      }
-      // 2. Update status of request to 'approved'
-      const { error: reqError } = await supabase
-        .from('course_requests')
-        .update({ status: 'approved' })
-        .eq('id', requestId);
-      if (reqError) {
-        console.error("Error updating course request status:", reqError);
-      }
-      await fetchLiveDatabaseState();
-      await fetchLiveStats();
+    setIsLoading(true);
+    // 1. Insert into enrollments
+    const { error: enrollError } = await supabase.from('enrollments').insert({
+      user_id: userId,
+      course_id: courseId
+    });
+    if (enrollError) {
+      alert("حدث خطأ أثناء الاشتراك: " + enrollError.message);
       setIsLoading(false);
-      alert("تم قبول الطلب وتفعيل الكورس بنجاح!");
+      return;
     }
+    // 2. Update status of request to 'approved'
+    const { error: reqError } = await supabase
+      .from('course_requests')
+      .update({ status: 'approved' })
+      .eq('id', requestId);
+    if (reqError) {
+      console.error("Error updating course request status:", reqError);
+    }
+    await fetchLiveDatabaseState();
+    await fetchLiveStats();
+    setIsLoading(false);
+    alert("تم قبول الطلب وتفعيل الكورس بنجاح!");
   };
 
   const handleRejectRequest = async (requestId) => {
     if (!confirm("هل أنت متأكد من رفض هذا الطلب؟")) return;
 
-    if (isDemoMode) {
-      setDemoCourseRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'rejected' } : r));
-      alert("تم رفض الطلب بنجاح (وضع التجربة)!");
-    } else {
-      setIsLoading(true);
-      const { error } = await supabase
-        .from('course_requests')
-        .update({ status: 'rejected' })
-        .eq('id', requestId);
+    setIsLoading(true);
+    const { error } = await supabase
+      .from('course_requests')
+      .update({ status: 'rejected' })
+      .eq('id', requestId);
 
-      if (!error) {
-        await fetchLiveDatabaseState();
-        alert("تم رفض الطلب بنجاح!");
-      } else {
-        alert("خطأ في رفض الطلب: " + error.message);
-      }
-      setIsLoading(false);
+    if (!error) {
+      await fetchLiveDatabaseState();
+      alert("تم رفض الطلب بنجاح!");
+    } else {
+      alert("خطأ في رفض الطلب: " + error.message);
     }
+    setIsLoading(false);
   };
 
   // --- FILTERS: STUDENTS ---
@@ -991,24 +735,7 @@ function App() {
   };
 
   // --- SOLVE FILTERED COURSES AND STATS ---
-  const stats = isDemoMode
-    ? {
-        totalStudents: demoStudents.length,
-        totalCourses: demoCourses.length,
-        totalRevenue: demoEnrollments.reduce((sum, e) => {
-          const course = demoCourses.find(c => c.id === e.course_id);
-          return sum + (course ? course.price : 0);
-        }, 0),
-        activeEnrollments: demoEnrollments.length,
-        recentSignups: demoStudents.slice(0, 5),
-        recentEnrollments: demoEnrollments.slice(0, 5).map(e => ({
-          ...e,
-          profile: demoStudents.find(s => s.id === e.user_id),
-          course: demoCourses.find(c => c.id === e.course_id)
-        })),
-        chartData: DEMO_CHART_DATA
-      }
-    : liveStats;
+  const stats = liveStats;
 
   const filteredCourses = currentCourses.filter(course => {
     const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1215,33 +942,16 @@ function App() {
           </div>
 
           <div className="header-actions">
-            {/* Live/Demo Switch */}
-            <div className="toggle-switch-container">
-              <span className="toggle-switch-label">قاعدة بيانات Supabase حية</span>
-              <label className="toggle-switch">
-                <input 
-                  type="checkbox" 
-                  checked={!isDemoMode}
-                  onChange={(e) => {
-                    setIsDemoMode(!e.target.checked);
-                    fetchLiveStats();
-                    fetchLiveDatabaseState();
-                  }} 
-                />
-                <span className="toggle-slider"></span>
-              </label>
-            </div>
-
             {/* Status Indicator */}
-            {isDemoMode ? (
-              <div className="status-badge demo">
-                <span className="status-indicator-dot"></span>
-                <span>وضع العرض (Demo)</span>
-              </div>
-            ) : (
+            {dbConnected ? (
               <div className="status-badge">
                 <span className="status-indicator-dot"></span>
                 <span>متصل بقاعدة البيانات</span>
+              </div>
+            ) : (
+              <div className="status-badge error" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.2)', color: '#EF4444' }}>
+                <span className="status-indicator-dot" style={{ backgroundColor: '#EF4444', boxShadow: '0 0 8px #EF4444' }}></span>
+                <span>غير متصل بقاعدة البيانات</span>
               </div>
             )}
 
