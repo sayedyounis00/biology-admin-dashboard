@@ -1,0 +1,80 @@
+# Project Rules & Instructions
+
+You are Antigravity, the AI coding assistant. Follow these project rules and guidelines strictly when working on this codebase.
+
+---
+
+## 🚫 CRITICAL TESTING POLICY
+* **DO NOT run tests or verify the web application after each code update.**
+* Do not run `npm run dev`, `npm run build`, `npm run lint`, or any browser testing subagent unless the USER explicitly requests it in the chat.
+* The user will tell you in chat when to test.
+
+---
+
+## 🛠️ Technology Stack & Styling
+1. **Core**: HTML, React, Vite (JavaScript).
+2. **Styling**: Vanilla CSS for maximum flexibility.
+   * **STRICTLY AVOID Tailwind CSS** unless the user explicitly requests it.
+   * If the user requests Tailwind CSS, first ask and confirm the specific Tailwind CSS version to use.
+3. **Design Direction**: Premium midnight theme with rich aesthetics, smooth gradients, hover states, and micro-animations.
+
+---
+
+## 🎨 Design System & Colors
+Maintain the **Premium Midnight Theme**:
+* **Base Background**: `#0F1623` (deep slate)
+* **Containers & Cards**: `#1A2235` (slightly lighter slate for elevation)
+* **Accent Gold**: `#FBBF24` (for links, key CTAs, highlights)
+* **Gamification Green**: `#C0E838` (neon green for "Study & Win")
+* **Emerald Success**: `#10B981` (for completed lessons, free course status)
+* **Footer Teal**: `#06333c` (dark teal-green footer)
+
+### Typography
+* **Default Font**: Geist (with suitable Arabic fallback fonts)
+* **Headings/Special Titles**: Badeen Display
+* **Keywords/Italic Emphasis**: Georgia/Serif (styled obliquely)
+
+---
+
+## 🗄️ Database Schema (Supabase)
+The database structure consists of 6 tables:
+1. `years`: High school grades (1st, 2nd, 3rd secondary).
+2. `profiles`: Student details linked to Supabase Auth UUID, including grade level (`year_id`).
+3. `courses`: Course info (title, description, price, published status, linked to `year_id`).
+4. `lessons`: Course lectures/lessons (video link, text description, order/sorting).
+5. `enrollments`: Mapping of students to purchased courses.
+6. `lesson_progress`: Completed lessons for progress tracking.
+
+---
+
+## ⚙️ Core System Workflows
+
+### 1. Registration & Grade Isolation
+* Students register (`/register`) with their grade level.
+* Content is automatically filtered so students only see courses relevant to their academic year (`year_id`).
+
+### 2. Manual Payment Workflow
+* Free courses are unlocked immediately.
+* Paid courses direct users to a payment page (`/payment`) showing mobile wallet instructions.
+* Students copy the wallet number, pay, and send a screenshot receipt via a WhatsApp link.
+* Admins manually insert the student enrollment record into the `enrollments` table, unlocking the course.
+
+### 3. Dual Sync Lesson Progress
+* Triggered when:
+  * A student watches $\ge 90\%$ of the lesson video.
+  * A student manually clicks the "completed" checkbox.
+* Syncing Mechanism:
+  1. Instantly write completion status to `localStorage` (high availability).
+  2. Send an asynchronous background update to Supabase via Next.js Server Actions.
+
+### 4. Content Protection & Anti-Inspect
+* **Obfuscation**: Video source links are encoded in Base64 on the server and decoded on the client right before rendering in the custom video player.
+* **Block Inspectors**: Disable right-click menu, keyboard shortcuts for developer tools (`F12`, `Ctrl+Shift+I`, `Ctrl+U`).
+* **Click Shield**: Add a transparent overlay above the video player to block direct link extraction or interaction.
+
+---
+
+## 🚀 General Development Rules
+* **Code Integrity**: Keep all existing comments, docstrings, and styling tokens intact unless explicitly told to change them.
+* **No Code Placeholders**: Write fully functional implementations; do not use placeholders for images or logical parts.
+* **L10n & RTL**: The website default is Arabic (RTL support). Ensure responsive layouts support this naturally.
