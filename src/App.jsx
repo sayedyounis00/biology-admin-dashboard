@@ -35,6 +35,30 @@ import {
 } from 'lucide-react';
 import './App.css';
 
+// --- WHATSAPP HELPER AND ICON ---
+const WhatsAppIcon = ({ size = 20, ...props }) => (
+  <svg 
+    viewBox="0 0 24 24" 
+    width={size} 
+    height={size} 
+    fill="currentColor" 
+    {...props}
+  >
+    <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.73-1.45L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436.002 9.858-4.417 9.86-9.86 0-2.637-1.025-5.114-2.887-6.978C16.578 1.902 14.1 .88 11.465.88c-5.44 0-9.862 4.418-9.865 9.861a9.814 9.814 0 0 0 1.488 5.122l-.98 3.58 3.673-.963zm10.518-6.195c-.3-.15-1.782-.88-2.05-.98-.268-.1-.463-.15-.658.15-.195.3-.755.95-.925 1.15-.17.2-.34.225-.64.075-.3-.15-1.266-.467-2.41-1.485-.89-.794-1.49-1.775-1.665-2.075-.175-.3-.018-.463.13-.61.134-.133.3-.348.45-.522.15-.175.2-.3.3-.5s.05-.375-.025-.525C8.26 8.478 7.64 6.97 7.38 6.345c-.253-.607-.51-.524-.658-.53-.14-.006-.3-.008-.46-.008-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2 0 1.18.86 2.32.98 2.48.12.16 1.69 2.58 4.09 3.615.57.246 1.017.394 1.366.505.574.182 1.096.157 1.507.096.46-.067 1.782-.73 2.033-1.433.253-.703.253-1.305.178-1.43-.076-.127-.272-.2-.572-.35z" />
+  </svg>
+);
+
+const getWhatsAppUrl = (phone) => {
+  if (!phone) return '#';
+  let cleaned = phone.replace(/\D/g, '');
+  if (cleaned.startsWith('0') && cleaned.length === 11) {
+    cleaned = '2' + cleaned;
+  } else if (cleaned.startsWith('1') && cleaned.length === 10) {
+    cleaned = '20' + cleaned;
+  }
+  return `https://wa.me/${cleaned}`;
+};
+
 function App() {
   const [activeTab, setActiveTab] = useState('overview');
   const [dbConnected, setDbConnected] = useState(false);
@@ -1629,7 +1653,7 @@ function App() {
                       <th>رقم الهاتف</th>
                       <th>عدد الكورسات المشترك بها</th>
                       <th>تاريخ التسجيل</th>
-                      <th>التفاصيل</th>
+                      <th>الإجراءات</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1647,7 +1671,24 @@ function App() {
                           </div>
                         </td>
                         <td>{getYearTitle(student.current_year_id)}</td>
-                        <td>{student.phone || 'غير محدد'}</td>
+                        <td>
+                          {student.phone ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span>{student.phone}</span>
+                              <a 
+                                href={getWhatsAppUrl(student.phone)}
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="whatsapp-icon-btn"
+                                title="تواصل عبر واتساب"
+                              >
+                                <WhatsAppIcon size={14} />
+                              </a>
+                            </div>
+                          ) : (
+                            'غير محدد'
+                          )}
+                        </td>
                         <td>
                           <span className="badge badge-success" style={{ padding: '2px 8px' }}>
                             {getStudentEnrollmentCount(student.id)} كورس
@@ -1655,16 +1696,30 @@ function App() {
                         </td>
                         <td>{new Date(student.created_at).toLocaleDateString('ar-EG')}</td>
                         <td>
-                          <button 
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => {
-                              setSelectedStudentId(student.id);
-                              setStudentDetailOpen(true);
-                            }}
-                          >
-                            <FileText size={14} />
-                            <span>عرض التقدم</span>
-                          </button>
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <button 
+                              className="btn btn-secondary btn-sm"
+                              onClick={() => {
+                                setSelectedStudentId(student.id);
+                                setStudentDetailOpen(true);
+                              }}
+                            >
+                              <FileText size={14} />
+                              <span>عرض التقدم</span>
+                            </button>
+                            {student.phone && (
+                              <a 
+                                href={getWhatsAppUrl(student.phone)}
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="btn btn-whatsapp btn-sm"
+                                title="تواصل عبر واتساب مباشرة"
+                              >
+                                <WhatsAppIcon size={14} />
+                                <span>واتساب</span>
+                              </a>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -2001,9 +2056,32 @@ function App() {
                     <Mail size={16} style={{ color: 'var(--accent-gold)' }} />
                     <span style={{ direction: 'ltr' }}>{selectedStudent.email}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
-                    <Phone size={16} style={{ color: 'var(--accent-gold)' }} />
-                    <span>{selectedStudent.phone || 'رقم الهاتف غير مسجل'}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', fontSize: '13px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <Phone size={16} style={{ color: 'var(--accent-gold)' }} />
+                      <span>{selectedStudent.phone || 'رقم الهاتف غير مسجل'}</span>
+                    </div>
+                    {selectedStudent.phone && (
+                      <a 
+                        href={getWhatsAppUrl(selectedStudent.phone)}
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="btn btn-whatsapp btn-sm"
+                        style={{ 
+                          padding: '4px 10px',
+                          borderRadius: '6px',
+                          fontSize: '11px',
+                          fontWeight: '500',
+                          textDecoration: 'none',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        <WhatsAppIcon size={12} />
+                        <span>مراسلة واتساب</span>
+                      </a>
+                    )}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
                     <Calendar size={16} style={{ color: 'var(--accent-gold)' }} />
