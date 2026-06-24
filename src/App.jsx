@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from './supabase';
 import { 
   LayoutDashboard, 
@@ -7,13 +7,11 @@ import {
   Users, 
   CreditCard, 
   BarChart3, 
-  Database, 
   TrendingUp, 
   Plus, 
   RefreshCw, 
   GraduationCap, 
   DollarSign, 
-  ArrowUpRight, 
   Sparkles,
   Search,
   BookOpenCheck,
@@ -40,7 +38,7 @@ import './App.css';
 function App() {
   const [activeTab, setActiveTab] = useState('overview');
   const [dbConnected, setDbConnected] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // --- LIVE DATABASE STATES ---
   const [liveCourses, setLiveCourses] = useState([]);
@@ -117,116 +115,91 @@ function App() {
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
   // --- LIVE DB DATA FETCHERS ---
-  const fetchLiveDatabaseState = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
       
-      // Profiles
-      const { data: profilesData } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
-      if (profilesData) setLiveStudents(profilesData);
+      const [
+        profilesRes,
+        enrollmentsRes,
+        lessonsRes,
+        progressRes,
+        coursesRes,
+        requestsRes,
+        yearsRes
+      ] = await Promise.all([
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+        supabase.from('enrollments').select('*').order('enrolled_at', { ascending: false }),
+        supabase.from('lessons').select('*').order('order_index', { ascending: true }),
+        supabase.from('lesson_progress').select('*'),
+        supabase.from('courses').select('*').order('created_at', { ascending: false }),
+        supabase.from('course_requests').select('*').order('created_at', { ascending: false }),
+        supabase.from('years').select('*').order('order_index')
+      ]);
 
-      // Enrollments
-      const { data: enrollmentsData } = await supabase.from('enrollments').select('*').order('enrolled_at', { ascending: false });
-      if (enrollmentsData) setLiveEnrollments(enrollmentsData);
+      if (profilesRes.error) throw profilesRes.error;
+      if (enrollmentsRes.error) throw enrollmentsRes.error;
+      if (lessonsRes.error) throw lessonsRes.error;
+      if (progressRes.error) throw progressRes.error;
+      if (coursesRes.error) throw coursesRes.error;
+      if (requestsRes.error) throw requestsRes.error;
+      if (yearsRes.error) throw yearsRes.error;
 
-      // Lessons
-      const { data: lessonsData } = await supabase.from('lessons').select('*').order('order_index', { ascending: true });
-      if (lessonsData) setLiveLessons(lessonsData);
+      const profilesData = profilesRes.data || [];
+      const enrollmentsData = enrollmentsRes.data || [];
+      const lessonsData = lessonsRes.data || [];
+      const progressData = progressRes.data || [];
+      const coursesData = coursesRes.data || [];
+      const courseRequestsData = requestsRes.data || [];
+      const yearsData = yearsRes.data || [];
 
-      // Lesson Progress
-      const { data: progressData } = await supabase.from('lesson_progress').select('*');
-      if (progressData) setLiveLessonProgress(progressData);
+      // Set live states
+      setLiveStudents(profilesData);
+      setLiveEnrollments(enrollmentsData);
+      setLiveLessons(lessonsData);
+      setLiveLessonProgress(progressData);
+      setLiveCourses(coursesData);
+      setLiveCourseRequests(courseRequestsData);
+      setYears(yearsData);
+      setDbConnected(true);
 
-      // Courses
-      const { data: coursesData } = await supabase.from('courses').select('*').order('created_at', { ascending: false });
-      if (coursesData) setLiveCourses(coursesData);
-
-      // Course Requests
-      const { data: courseRequestsData } = await supabase.from('course_requests').select('*').order('created_at', { ascending: false });
-      if (courseRequestsData) setLiveCourseRequests(courseRequestsData);
-
-      // Years
-      const { data: yearsData } = await supabase.from('years').select('*').order('order_index');
-      if (yearsData) {
-        setYears(yearsData);
-        if (yearsData.length > 0 && !newCourseForm.year_id) {
-          setNewCourseForm(prev => ({ ...prev, year_id: yearsData[0].id }));
-        }
+      // Pre-calculate newCourseForm default year if needed
+      if (yearsData.length > 0) {
+        setNewCourseForm(prev => {
+          if (!prev.year_id) {
+            return { ...prev, year_id: yearsData[0].id };
+          }
+          return prev;
+        });
       }
 
       // Enrollment counts per course
       const counts = {};
-      if (enrollmentsData) {
-        enrollmentsData.forEach(e => {
-          counts[e.course_id] = (counts[e.course_id] || 0) + 1;
-        });
-      }
+      enrollmentsData.forEach(e => {
+        counts[e.course_id] = (counts[e.course_id] || 0) + 1;
+      });
       setLiveEnrollmentCounts(counts);
 
-    } catch (err) {
-      console.error("Error loading live database tables:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      // Stats Calculation
+      const studentCount = profilesData.length;
+      const courseCount = coursesData.length;
 
-  const fetchLiveStats = async () => {
-    try {
-      setIsLoading(true);
-      
-      const { count: studentCount } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
-        
-      const { count: courseCount } = await supabase
-        .from('courses')
-        .select('*', { count: 'exact', head: true });
+      // Construct maps for fast lookup during enrichment
+      const profileMap = {};
+      profilesData.forEach(p => {
+        profileMap[p.id] = p;
+      });
 
-      const { data: coursesList } = await supabase
-        .from('courses')
-        .select('*');
+      const courseMap = {};
+      coursesData.forEach(c => {
+        courseMap[c.id] = c;
+      });
 
-      const { data: enrollmentsList } = await supabase
-        .from('enrollments')
-        .select('*')
-        .order('enrolled_at', { ascending: false });
-
-      const { data: recentProfilesList } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      setDbConnected(true);
-
-      let enrichedEnrollments = [];
-      if (enrollmentsList && enrollmentsList.length > 0) {
-        const userIds = [...new Set(enrollmentsList.map(e => e.user_id))];
-        const { data: enrollmentProfiles } = await supabase
-          .from('profiles')
-          .select('*')
-          .in('id', userIds);
-
-        const profileMap = {};
-        if (enrollmentProfiles) {
-          enrollmentProfiles.forEach(p => {
-            profileMap[p.id] = p;
-          });
-        }
-
-        const courseMap = {};
-        if (coursesList) {
-          coursesList.forEach(c => {
-            courseMap[c.id] = c;
-          });
-        }
-
-        enrichedEnrollments = enrollmentsList.map(e => ({
-          ...e,
-          profile: profileMap[e.user_id] || { full_name: 'طالب غير معروف', email: 'N/A' },
-          course: courseMap[e.course_id] || { title: 'كورس غير معروف', price: 0 }
-        }));
-      }
+      const enrichedEnrollments = enrollmentsData.map(e => ({
+        ...e,
+        profile: profileMap[e.user_id] || { full_name: 'طالب غير معروف', email: 'N/A' },
+        course: courseMap[e.course_id] || { title: 'كورس غير معروف', price: 0 }
+      }));
 
       const totalRev = enrichedEnrollments.reduce((sum, e) => sum + (Number(e.course?.price) || 0), 0);
 
@@ -235,6 +208,7 @@ function App() {
       startOfMonth.setHours(0, 0, 0, 0);
       const activeThisMonth = enrichedEnrollments.filter(e => new Date(e.enrolled_at) >= startOfMonth).length;
 
+      // Chart Calculations
       const chartPoints = [];
       const now = new Date();
       for (let i = 9; i >= 0; i--) {
@@ -263,46 +237,63 @@ function App() {
         : chartPoints;
 
       setLiveStats({
-        totalStudents: studentCount || 0,
-        totalCourses: courseCount || 0,
+        totalStudents: studentCount,
+        totalCourses: courseCount,
         totalRevenue: totalRev,
         activeEnrollments: activeThisMonth,
-        recentSignups: recentProfilesList || [],
+        recentSignups: profilesData.slice(0, 5),
         recentEnrollments: enrichedEnrollments.slice(0, 5),
         chartData: finalChart
       });
 
     } catch (err) {
-      console.warn("Could not connect to Supabase database stats", err);
+      console.warn("Could not load data from Supabase", err);
       setDbConnected(false);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
+
+  const loadLessonsForCourse = useCallback(async (courseId) => {
+    setIsLoading(true);
+    try {
+      const [courseResult, lessonsResult] = await Promise.all([
+        supabase.from('courses').select('*').eq('id', courseId).single(),
+        supabase.from('lessons').select('*').eq('course_id', courseId).order('order_index', { ascending: true })
+      ]);
+
+      const course = courseResult.data;
+      if (course) {
+        setEditorCourseForm({
+          title: course.title,
+          description: course.description || '',
+          price: course.price,
+          year_id: course.year_id || '',
+          thumbnail_url: course.thumbnail_url || '',
+          is_published: course.is_published
+        });
+      }
+      setEditorLessons(lessonsResult.data || []);
+      setActiveLessonEditId(null);
+    } catch (err) {
+      console.error("Error loading lessons for course:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetchLiveStats();
-    fetchLiveDatabaseState();
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchData();
+  }, [fetchData]);
 
   // Sync editor if active course changes
   useEffect(() => {
     if (editingCourseId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadLessonsForCourse(editingCourseId);
     }
-  }, [editingCourseId]);
-
-  // Sync analytics selection if courses list changes
-  useEffect(() => {
-    const list = liveCourses;
-    if (list.length > 0) {
-      // Find matching course or default to first
-      const found = list.find(c => c.id === analyticsSelectedCourseId);
-      if (!found) {
-        setAnalyticsSelectedCourseId(list[0].id);
-      }
-    }
-  }, [liveCourses]);
+  }, [editingCourseId, loadLessonsForCourse]);
 
   // --- RESOLVE CURRENT STATE ---
   const currentStudents = liveStudents;
@@ -310,47 +301,110 @@ function App() {
   const currentCourses = liveCourses;
   const currentEnrollmentCounts = liveEnrollmentCounts;
   const currentYears = years;
-  const currentLessons = liveLessons;
   const currentLessonProgress = liveLessonProgress;
   const currentCourseRequests = liveCourseRequests;
 
   // --- MATH & JOIN HELPERS ---
-  const getYearTitle = (yearId) => {
-    const year = currentYears.find(y => y.id === yearId);
-    return year ? year.title : 'صف دراسي غير محدد';
-  };
+  const yearsMap = useMemo(() => {
+    const map = new Map();
+    currentYears.forEach(y => map.set(y.id, y.title));
+    return map;
+  }, [currentYears]);
 
-  const getStudentEnrollmentCount = (studentId) => {
-    return currentEnrollments.filter(e => e.user_id === studentId).length;
-  };
+  const getYearTitle = useCallback((yearId) => {
+    return yearsMap.get(yearId) || 'صف دراسي غير محدد';
+  }, [yearsMap]);
 
-  const getEnrolledCoursesForStudent = (studentId) => {
-    const enrolls = currentEnrollments.filter(e => e.user_id === studentId);
-    return enrolls.map(e => {
-      const course = currentCourses.find(c => c.id === e.course_id);
-      return course ? { ...course, enrolled_at: e.enrolled_at } : null;
-    }).filter(Boolean);
-  };
+  const studentEnrollmentCountMap = useMemo(() => {
+    const map = new Map();
+    currentEnrollments.forEach(e => {
+      map.set(e.user_id, (map.get(e.user_id) || 0) + 1);
+    });
+    return map;
+  }, [currentEnrollments]);
 
-  const getLessonsForCourse = (courseId) => {
-    return liveLessons.filter(l => l.course_id === courseId);
-  };
+  const getStudentEnrollmentCount = useCallback((studentId) => {
+    return studentEnrollmentCountMap.get(studentId) || 0;
+  }, [studentEnrollmentCountMap]);
 
-  const getLessonCompletionPercentage = (studentId, courseId) => {
+  const enrolledCoursesForStudentMap = useMemo(() => {
+    const map = new Map();
+    const courseMap = new Map();
+    currentCourses.forEach(c => courseMap.set(c.id, c));
+
+    currentEnrollments.forEach(e => {
+      if (!map.has(e.user_id)) {
+        map.set(e.user_id, []);
+      }
+      const course = courseMap.get(e.course_id);
+      if (course) {
+        map.get(e.user_id).push({ ...course, enrolled_at: e.enrolled_at });
+      }
+    });
+    return map;
+  }, [currentEnrollments, currentCourses]);
+
+  const getEnrolledCoursesForStudent = useCallback((studentId) => {
+    return enrolledCoursesForStudentMap.get(studentId) || [];
+  }, [enrolledCoursesForStudentMap]);
+
+  const lessonsByCourseMap = useMemo(() => {
+    const map = new Map();
+    liveLessons.forEach(l => {
+      if (!map.has(l.course_id)) {
+        map.set(l.course_id, []);
+      }
+      map.get(l.course_id).push(l);
+    });
+    return map;
+  }, [liveLessons]);
+
+  const getLessonsForCourse = useCallback((courseId) => {
+    return lessonsByCourseMap.get(courseId) || [];
+  }, [lessonsByCourseMap]);
+
+  const progressByStudentLessonMap = useMemo(() => {
+    const map = new Map();
+    currentLessonProgress.forEach(p => {
+      if (p.completed) {
+        map.set(`${p.user_id}_${p.lesson_id}`, true);
+      }
+    });
+    return map;
+  }, [currentLessonProgress]);
+
+  const lessonProgressCountMap = useMemo(() => {
+    const map = new Map();
+    currentLessonProgress.forEach(p => {
+      if (p.completed) {
+        map.set(p.lesson_id, (map.get(p.lesson_id) || 0) + 1);
+      }
+    });
+    return map;
+  }, [currentLessonProgress]);
+
+  const getLessonCompletionPercentage = useCallback((studentId, courseId) => {
     const courseLessons = getLessonsForCourse(courseId);
     if (courseLessons.length === 0) return 0;
 
     const completedCount = courseLessons.filter(l => 
-      currentLessonProgress.some(p => p.user_id === studentId && p.lesson_id === l.id && p.completed)
+      progressByStudentLessonMap.has(`${studentId}_${l.id}`)
     ).length;
 
     return Math.round((completedCount / courseLessons.length) * 100);
-  };
+  }, [getLessonsForCourse, progressByStudentLessonMap]);
 
-  const getLessonStatusText = (studentId, lessonId) => {
-    const isCompleted = currentLessonProgress.some(p => p.user_id === studentId && p.lesson_id === lessonId && p.completed);
-    return isCompleted ? 'مكتمل' : 'غير مكتمل';
-  };
+  const getAnalyticsDropoffs = useCallback((courseId) => {
+    const courseLessons = getLessonsForCourse(courseId);
+    return courseLessons.map(l => {
+      const completedCount = lessonProgressCountMap.get(l.id) || 0;
+      return {
+        lessonId: l.id,
+        title: l.title,
+        completedCount
+      };
+    });
+  }, [getLessonsForCourse, lessonProgressCountMap]);
 
   // --- ACTIONS: GENERAL ---
   const handleTogglePublish = async (courseId, currentStatus) => {
@@ -361,8 +415,7 @@ function App() {
       .eq('id', courseId);
     
     if (!error) {
-      await fetchLiveDatabaseState();
-      await fetchLiveStats();
+      await fetchData();
     } else {
       alert("خطأ في تحديث حالة النشر: " + error.message);
     }
@@ -383,8 +436,7 @@ function App() {
     
     const { error } = await supabase.from('courses').delete().eq('id', courseId);
     if (!error) {
-      await fetchLiveDatabaseState();
-      await fetchLiveStats();
+      await fetchData();
       if (editingCourseId === courseId) setEditingCourseId(null);
     } else {
       alert("خطأ في حذف الكورس: " + error.message);
@@ -411,8 +463,7 @@ function App() {
       .single();
 
     if (!error && data) {
-      await fetchLiveDatabaseState();
-      await fetchLiveStats();
+      await fetchData();
       setIsNewCourseModalOpen(false);
       setNewCourseForm({ title: '', description: '', year_id: years[0]?.id, price: 0, thumbnail_url: '' });
       setEditingCourseId(data.id);
@@ -423,24 +474,6 @@ function App() {
   };
 
   // --- EDITOR SYSTEM FUNCTIONS ---
-  const loadLessonsForCourse = async (courseId) => {
-    setIsLoading(true);
-    const { data: course } = await supabase.from('courses').select('*').eq('id', courseId).single();
-    if (course) {
-      setEditorCourseForm({
-        title: course.title,
-        description: course.description || '',
-        price: course.price,
-        year_id: course.year_id || '',
-        thumbnail_url: course.thumbnail_url || '',
-        is_published: course.is_published
-      });
-    }
-    const { data: lessonsData } = await supabase.from('lessons').select('*').eq('course_id', courseId).order('order_index', { ascending: true });
-    setEditorLessons(lessonsData || []);
-    setIsLoading(false);
-    setActiveLessonEditId(null);
-  };
 
   const handleUpdateCourseDetails = async (e) => {
     e.preventDefault();
@@ -459,8 +492,7 @@ function App() {
 
     if (!error) {
       alert("تم تعديل الكورس بنجاح!");
-      await fetchLiveDatabaseState();
-      await fetchLiveStats();
+      await fetchData();
     } else {
       alert("خطأ في تحديث البيانات: " + error.message);
     }
@@ -488,7 +520,7 @@ function App() {
 
     if (!error && data) {
       setEditorLessons(prev => [...prev, data]);
-      await fetchLiveDatabaseState();
+      await fetchData();
       handleOpenLessonEdit(data);
     } else {
       alert("خطأ في إضافة الدرس: " + error.message);
@@ -510,7 +542,7 @@ function App() {
           remaining[i].order_index = i;
         }
       }
-      await fetchLiveDatabaseState();
+      await fetchData();
       setEditorLessons(remaining);
       if (activeLessonEditId === lessonId) setActiveLessonEditId(null);
     } else {
@@ -537,9 +569,11 @@ function App() {
     setEditorLessons(list);
 
     setIsLoading(true);
-    await supabase.from('lessons').update({ order_index: list[index].order_index }).eq('id', list[index].id);
-    await supabase.from('lessons').update({ order_index: list[targetIndex].order_index }).eq('id', list[targetIndex].id);
-    await fetchLiveDatabaseState();
+    await Promise.all([
+      supabase.from('lessons').update({ order_index: list[index].order_index }).eq('id', list[index].id),
+      supabase.from('lessons').update({ order_index: list[targetIndex].order_index }).eq('id', list[targetIndex].id)
+    ]);
+    await fetchData();
     setIsLoading(false);
   };
 
@@ -563,7 +597,7 @@ function App() {
     const { error } = await supabase.from('lessons').update(fields).eq('id', lessonId);
     if (!error) {
       setEditorLessons(prev => prev.map(l => l.id === lessonId ? { ...l, ...fields } : l));
-      await fetchLiveDatabaseState();
+      await fetchData();
       setActiveLessonEditId(null);
     } else {
       alert("خطأ في حفظ التغييرات: " + error.message);
@@ -592,8 +626,7 @@ function App() {
       });
 
     if (!error) {
-      await fetchLiveDatabaseState();
-      await fetchLiveStats();
+      await fetchData();
       setIsNewEnrollModalOpen(false);
       setNewEnrollForm({ user_id: '', course_id: '' });
       setEnrollStudentSearch('');
@@ -609,8 +642,7 @@ function App() {
     setIsLoading(true);
     const { error } = await supabase.from('enrollments').delete().eq('id', enrollId);
     if (!error) {
-      await fetchLiveDatabaseState();
-      await fetchLiveStats();
+      await fetchData();
     } else {
       alert("خطأ في إلغاء الاشتراك: " + error.message);
     }
@@ -637,8 +669,7 @@ function App() {
     if (reqError) {
       console.error("Error updating course request status:", reqError);
     }
-    await fetchLiveDatabaseState();
-    await fetchLiveStats();
+    await fetchData();
     setIsLoading(false);
     alert("تم قبول الطلب وتفعيل الكورس بنجاح!");
   };
@@ -653,7 +684,7 @@ function App() {
       .eq('id', requestId);
 
     if (!error) {
-      await fetchLiveDatabaseState();
+      await fetchData();
       alert("تم رفض الطلب بنجاح!");
     } else {
       alert("خطأ في رفض الطلب: " + error.message);
@@ -722,20 +753,14 @@ function App() {
     });
   };
 
-  const getAnalyticsDropoffs = (courseId) => {
-    const courseLessons = getLessonsForCourse(courseId);
-    return courseLessons.map(l => {
-      const completedCount = currentLessonProgress.filter(p => p.lesson_id === l.id && p.completed).length;
-      return {
-        lessonId: l.id,
-        title: l.title,
-        completedCount
-      };
-    });
-  };
-
   // --- SOLVE FILTERED COURSES AND STATS ---
   const stats = liveStats;
+
+  const currentAnalyticsCourseId = useMemo(() => {
+    return currentCourses.some(c => c.id === analyticsSelectedCourseId)
+      ? analyticsSelectedCourseId
+      : (currentCourses[0]?.id || '');
+  }, [currentCourses, analyticsSelectedCourseId]);
 
   const filteredCourses = currentCourses.filter(course => {
     const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -1904,7 +1929,7 @@ function App() {
                 
                 <select 
                   className="form-select"
-                  value={analyticsSelectedCourseId}
+                  value={currentAnalyticsCourseId}
                   onChange={(e) => setAnalyticsSelectedCourseId(e.target.value)}
                   style={{ minWidth: '220px' }}
                 >
@@ -1914,11 +1939,11 @@ function App() {
                 </select>
               </div>
 
-              {getLessonsForCourse(analyticsSelectedCourseId).length > 0 ? (
+              {getLessonsForCourse(currentAnalyticsCourseId).length > 0 ? (
                 <div>
                   <div className="dropoff-chart-container">
-                    {getAnalyticsDropoffs(analyticsSelectedCourseId).map((lesson, idx) => {
-                      const maxCompleted = Math.max(...getAnalyticsDropoffs(analyticsSelectedCourseId).map(l => l.completedCount), 1);
+                    {getAnalyticsDropoffs(currentAnalyticsCourseId).map((lesson, idx) => {
+                      const maxCompleted = Math.max(...getAnalyticsDropoffs(currentAnalyticsCourseId).map(l => l.completedCount), 1);
                       const barHeight = (lesson.completedCount / maxCompleted) * 120 + 20; // range 20px - 140px
                       return (
                         <div key={lesson.lessonId} className="dropoff-bar-wrapper">
