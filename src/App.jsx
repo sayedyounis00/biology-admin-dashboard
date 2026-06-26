@@ -1528,8 +1528,23 @@ function App() {
                           onClick={() => setEditingCourseId(course.id)} 
                           style={{ cursor: 'pointer' }}
                         >
-                          <div className="course-meta-title">{course.title}</div>
-                          <div className="course-meta-subtitle">{getYearTitle(course.year_id)}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            {course.thumbnail_url ? (
+                              <img 
+                                src={course.thumbnail_url} 
+                                alt={course.title} 
+                                style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover', backgroundColor: 'rgba(255,255,255,0.05)' }} 
+                              />
+                            ) : (
+                              <div style={{ width: '48px', height: '48px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <BookOpen size={20} style={{ color: 'var(--text-muted)' }} />
+                              </div>
+                            )}
+                            <div>
+                              <div className="course-meta-title">{course.title}</div>
+                              <div className="course-meta-subtitle">{getYearTitle(course.year_id)}</div>
+                            </div>
+                          </div>
                         </td>
 
                         <td>
@@ -1674,7 +1689,16 @@ function App() {
                       />
                     </div>
 
-
+                    <div className="form-group">
+                      <label className="form-label">رابط الصورة المصغرة (Thumbnail URL)</label>
+                      <input 
+                        type="url" 
+                        className="form-input" 
+                        placeholder="رابط الصورة المصغرة للكورس (مثال: https://...)"
+                        value={editorCourseForm.thumbnail_url}
+                        onChange={(e) => setEditorCourseForm(prev => ({ ...prev, thumbnail_url: e.target.value }))}
+                      />
+                    </div>
 
                     <div className="form-group">
                       <label className="form-label">وصف الكورس والشروحات المشمولة</label>
@@ -3257,7 +3281,16 @@ function App() {
                   />
                 </div>
 
-
+                <div className="form-group">
+                  <label className="form-label">رابط الصورة المصغرة (Thumbnail URL)</label>
+                  <input 
+                    type="url" 
+                    className="form-input" 
+                    placeholder="رابط الصورة المصغرة للكورس (مثال: https://...)"
+                    value={newCourseForm.thumbnail_url}
+                    onChange={(e) => setNewCourseForm(prev => ({ ...prev, thumbnail_url: e.target.value }))}
+                  />
+                </div>
 
                 <div className="form-group">
                   <label className="form-label">وصف مختصر</label>
