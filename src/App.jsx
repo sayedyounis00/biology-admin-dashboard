@@ -31,9 +31,16 @@ import {
   Phone,
   Mail,
   Calendar,
-  Layers
+  Layers,
+  AlertTriangle,
+  MessageSquare,
+  Image,
+  Upload,
+  Copy,
+  ExternalLink
 } from 'lucide-react';
 import './App.css';
+import EarlyWarningSystem from './components/EarlyWarningSystem';
 
 // --- WHATSAPP HELPER AND ICON ---
 const WhatsAppIcon = ({ size = 20, ...props }) => (
@@ -73,6 +80,17 @@ function App() {
   const [liveLessonProgress, setLiveLessonProgress] = useState([]);
   const [liveEnrollmentCounts, setLiveEnrollmentCounts] = useState({});
   const [years, setYears] = useState([]);
+  const [liveComplaints, setLiveComplaints] = useState([]);
+  const [complaintSearchTerm, setComplaintSearchTerm] = useState('');
+  const [selectedComplaint, setSelectedComplaint] = useState(null);
+  const [isComplaintModalOpen, setIsComplaintModalOpen] = useState(false);
+  const [mediaFiles, setMediaFiles] = useState([]);
+  const [mediaLoading, setMediaLoading] = useState(false);
+  const [mediaBucket, setMediaBucket] = useState('course-images');
+  const [mediaSearchTerm, setMediaSearchTerm] = useState('');
+  const [mediaUploadLoading, setMediaUploadLoading] = useState(false);
+  const [mediaBucketError, setMediaBucketError] = useState(null);
+  const [isDragging, setIsDragging] = useState(false);
   const [liveStats, setLiveStats] = useState({
     totalStudents: 0,
     totalCourses: 0,
@@ -150,7 +168,8 @@ function App() {
         progressRes,
         coursesRes,
         requestsRes,
-        yearsRes
+        yearsRes,
+        complaintsRes
       ] = await Promise.all([
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
         supabase.from('enrollments').select('*').order('enrolled_at', { ascending: false }),
@@ -158,7 +177,8 @@ function App() {
         supabase.from('lesson_progress').select('*'),
         supabase.from('courses').select('*').order('created_at', { ascending: false }),
         supabase.from('course_requests').select('*').order('created_at', { ascending: false }),
-        supabase.from('years').select('*').order('order_index')
+        supabase.from('years').select('*').order('order_index'),
+        supabase.from('complaints').select('*').order('created_at', { ascending: false })
       ]);
 
       if (profilesRes.error) throw profilesRes.error;
@@ -168,6 +188,7 @@ function App() {
       if (coursesRes.error) throw coursesRes.error;
       if (requestsRes.error) throw requestsRes.error;
       if (yearsRes.error) throw yearsRes.error;
+      if (complaintsRes.error) throw complaintsRes.error;
 
       const profilesData = profilesRes.data || [];
       const enrollmentsData = enrollmentsRes.data || [];
@@ -176,6 +197,7 @@ function App() {
       const coursesData = coursesRes.data || [];
       const courseRequestsData = requestsRes.data || [];
       const yearsData = yearsRes.data || [];
+      const complaintsData = complaintsRes.data || [];
 
       // Set live states
       setLiveStudents(profilesData);
@@ -185,6 +207,7 @@ function App() {
       setLiveCourses(coursesData);
       setLiveCourseRequests(courseRequestsData);
       setYears(yearsData);
+      setLiveComplaints(complaintsData);
       setDbConnected(true);
 
       // Pre-calculate newCourseForm default year if needed
@@ -407,6 +430,26 @@ function App() {
     return map;
   }, [currentLessonProgress]);
 
+  const filteredComplaints = useMemo(() => {
+    return liveComplaints.filter(complaint => {
+      const student = liveStudents.find(s => s.id === complaint.user_id);
+      const searchLower = complaintSearchTerm.toLowerCase();
+      
+      const matchText = complaint.complaint_text?.toLowerCase().includes(searchLower) || false;
+      const matchName = student?.full_name?.toLowerCase().includes(searchLower) || false;
+      const matchEmail = student?.email?.toLowerCase().includes(searchLower) || false;
+      const matchPhone = student?.phone?.toLowerCase().includes(searchLower) || false;
+      
+      return matchText || matchName || matchEmail || matchPhone;
+    });
+  }, [liveComplaints, liveStudents, complaintSearchTerm]);
+
+  const filteredMediaFiles = useMemo(() => {
+    return mediaFiles.filter(file => {
+      return file.name.toLowerCase().includes(mediaSearchTerm.toLowerCase());
+    });
+  }, [mediaFiles, mediaSearchTerm]);
+
   const getLessonCompletionPercentage = useCallback((studentId, courseId) => {
     const courseLessons = getLessonsForCourse(courseId);
     if (courseLessons.length === 0) return 0;
@@ -457,6 +500,7 @@ function App() {
       await supabase.from('lessons').delete().eq('course_id', courseId);
     }
     await supabase.from('enrollments').delete().eq('course_id', courseId);
+    await supabase.from('course_requests').delete().eq('course_id', courseId);
     
     const { error } = await supabase.from('courses').delete().eq('id', courseId);
     if (!error) {
@@ -664,8 +708,20 @@ function App() {
     if (!confirm("هل أنت متأكد من إلغاء هذا الاشتراك؟ سيفقد الطالب إمكانية الوصول إلى الكورس والدروس.")) return;
 
     setIsLoading(true);
+    const enrollment = currentEnrollments.find(e => e.id === enrollId);
+
     const { error } = await supabase.from('enrollments').delete().eq('id', enrollId);
     if (!error) {
+      if (enrollment) {
+        const { error: reqError } = await supabase
+          .from('course_requests')
+          .delete()
+          .eq('user_id', enrollment.user_id)
+          .eq('course_id', enrollment.course_id);
+        if (reqError) {
+          console.error("Error deleting course request:", reqError);
+        }
+      }
       await fetchData();
     } else {
       alert("خطأ في إلغاء الاشتراك: " + error.message);
@@ -714,6 +770,132 @@ function App() {
       alert("خطأ في رفض الطلب: " + error.message);
     }
     setIsLoading(false);
+  };
+
+  const handleDeleteComplaint = async (complaintId) => {
+    if (!confirm("هل أنت متأكد من حذف هذه الشكوى؟")) return;
+
+    setIsLoading(true);
+    const { error } = await supabase.from('complaints').delete().eq('id', complaintId);
+    if (!error) {
+      await fetchData();
+      alert("تم حذف الشكوى بنجاح!");
+    } else {
+      alert("خطأ في حذف الشكوى: " + error.message);
+    }
+    setIsLoading(false);
+  };
+
+  const fetchMedia = useCallback(async (bucketName = mediaBucket) => {
+    setMediaLoading(true);
+    setMediaBucketError(null);
+    try {
+      const { data, error } = await supabase.storage.from(bucketName).list('', {
+        limit: 100,
+        sortBy: { column: 'created_at', order: 'desc' }
+      });
+      if (error) {
+        if (error.message?.includes('not found') || error.status === 404 || error.statusCode === '404') {
+          setMediaBucketError("bucket_not_found");
+        } else {
+          setMediaBucketError(error.message);
+        }
+        setMediaFiles([]);
+      } else {
+        const enrichedFiles = data.map(file => {
+          const { data: { publicUrl } } = supabase.storage.from(bucketName).getPublicUrl(file.name);
+          return {
+            ...file,
+            url: publicUrl
+          };
+        }).filter(file => file.name !== '.emptyFolderPlaceholder');
+        setMediaFiles(enrichedFiles);
+      }
+    } catch (e) {
+      console.error("Error fetching media:", e);
+      setMediaBucketError(e.message);
+    } finally {
+      setMediaLoading(false);
+    }
+  }, [mediaBucket]);
+
+  useEffect(() => {
+    if (activeTab === 'media') {
+      fetchMedia();
+    }
+  }, [activeTab, fetchMedia]);
+
+  const handleUploadImage = async (e) => {
+    const files = e.target.files || (e.dataTransfer && e.dataTransfer.files);
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    if (!file.type.startsWith('image/')) {
+      alert("يرجى اختيار ملف صورة صالح (PNG, JPEG, WEBP, GIF)");
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) {
+      alert("حجم الصورة كبير جداً. الحد الأقصى هو 5 ميجابايت.");
+      return;
+    }
+
+    setMediaUploadLoading(true);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 11)}.${fileExt}`;
+      
+      const { data, error } = await supabase.storage
+        .from(mediaBucket)
+        .upload(uniqueFileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) {
+        alert("فشل رفع الصورة: " + error.message);
+      } else {
+        alert("تم رفع الصورة بنجاح!");
+        fetchMedia();
+      }
+    } catch (e) {
+      alert("حدث خطأ أثناء الرفع: " + e.message);
+    } finally {
+      setMediaUploadLoading(false);
+    }
+  };
+
+  const handleDeleteImage = async (fileName) => {
+    if (!confirm("هل أنت متأكد من حذف هذه الصورة نهائياً؟")) return;
+
+    setMediaLoading(true);
+    try {
+      const { error } = await supabase.storage.from(mediaBucket).remove([fileName]);
+      if (error) {
+        alert("فشل حذف الصورة: " + error.message);
+      } else {
+        alert("تم حذف الصورة بنجاح!");
+        fetchMedia();
+      }
+    } catch (e) {
+      alert("حدث خطأ أثناء الحذف: " + e.message);
+    } finally {
+      setMediaLoading(false);
+    }
+  };
+
+  const handleCopyUrl = (url) => {
+    navigator.clipboard.writeText(url);
+    alert("تم نسخ رابط الصورة المباشر بنجاح!");
+  };
+
+  const formatBytes = (bytes, decimals = 2) => {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
   };
 
   // --- FILTERS: STUDENTS ---
@@ -946,6 +1128,58 @@ function App() {
                 <span>تحليلات الأداء</span>
               </button>
             </li>
+            <li>
+              <button 
+                className={`menu-item-btn ${activeTab === 'warnings' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('warnings');
+                  setEditingCourseId(null);
+                }}
+              >
+                <AlertTriangle />
+                <span>الإنذار المبكر</span>
+              </button>
+            </li>
+            <li>
+              <button 
+                className={`menu-item-btn ${activeTab === 'complaints' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('complaints');
+                  setEditingCourseId(null);
+                }}
+                style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <MessageSquare />
+                  <span>الشكاوى والاقتراحات</span>
+                </div>
+                {liveComplaints.length > 0 && (
+                  <span style={{
+                    backgroundColor: '#EF4444',
+                    color: 'white',
+                    fontSize: '11px',
+                    fontWeight: 'bold',
+                    padding: '2px 8px',
+                    borderRadius: '999px',
+                    marginRight: 'auto'
+                  }}>
+                    {liveComplaints.length}
+                  </span>
+                )}
+              </button>
+            </li>
+            <li>
+              <button 
+                className={`menu-item-btn ${activeTab === 'media' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('media');
+                  setEditingCourseId(null);
+                }}
+              >
+                <Image />
+                <span>مكتبة الوسائط</span>
+              </button>
+            </li>
           </ul>
         </nav>
 
@@ -977,6 +1211,9 @@ function App() {
                   {activeTab === 'students' && 'حسابات الطلاب المسجلين'}
                   {activeTab === 'enrollments' && 'إدارة الاشتراكات اليدوية'}
                   {activeTab === 'analytics' && 'تحليلات الأداء والمبيعات'}
+                  {activeTab === 'warnings' && 'نظام الإنذار المبكر'}
+                  {activeTab === 'complaints' && 'الشكاوى والاقتراحات'}
+                  {activeTab === 'media' && 'مكتبة الوسائط والصور'}
                 </h1>
                 <p>
                   {activeTab === 'overview' && 'مرحباً بك مجدداً، أ. أحمد. إليك آخر مستجدات المنصة التعليمية لهذا اليوم.'}
@@ -985,6 +1222,9 @@ function App() {
                   {activeTab === 'students' && 'متابعة بيانات الطلاب ونسب تقدمهم الدراسي وتتبع إتمام الدروس والمشاهدات.'}
                   {activeTab === 'enrollments' && 'إضافة أو حذف الاشتراكات اليدوية للطلاب بالكورسات المدفوعة.'}
                   {activeTab === 'analytics' && 'رؤى بيانية مفصلة حول إتمام الدروس ونسب التساقط وشعبية الكورسات.'}
+                  {activeTab === 'warnings' && 'تتبع تلقائي للطلاب المعرضين للتعثر أو الانقطاع الدراسي واتخاذ الإجراءات الوقائية.'}
+                  {activeTab === 'complaints' && 'متابعة شكاوى الطلاب، رسائل الدعم الفني، والملاحظات المستلمة للعمل على حلها.'}
+                  {activeTab === 'media' && 'رفع وإدارة صور المنصة، واستخراج روابطها المباشرة لاستخدامها في تفاصيل الكورسات والمحاضرات.'}
                 </p>
               </>
             )}
@@ -2027,6 +2267,716 @@ function App() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* --- PAGE 7: WARNINGS --- */}
+        {activeTab === 'warnings' && (
+          <EarlyWarningSystem 
+            onViewProfile={(studentId) => {
+              if (typeof studentId === 'string') {
+                setSelectedStudentId(studentId);
+                setStudentDetailOpen(true);
+              }
+            }}
+          />
+        )}
+
+        {/* --- PAGE 8: COMPLAINTS --- */}
+        {activeTab === 'complaints' && (
+          <div className="tab-pane active animate-fade-in" style={{ direction: 'rtl' }}>
+            {/* Header Toolbar */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '24px',
+              gap: '16px',
+              flexWrap: 'wrap'
+            }}>
+              <div className="search-bar" style={{ flex: 1, maxWidth: '450px', marginBottom: 0 }}>
+                <Search size={18} />
+                <input 
+                  type="text" 
+                  placeholder="البحث باسم الطالب، البريد الإلكتروني، أو محتوى الشكوى..." 
+                  value={complaintSearchTerm}
+                  onChange={(e) => setComplaintSearchTerm(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px 8px 36px',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--bg-card)',
+                    color: 'var(--text-main)',
+                    fontSize: '14px',
+                    direction: 'rtl'
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div className="stat-badge" style={{
+                  backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                  color: '#3B82F6',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontWeight: '600',
+                  fontSize: '14px'
+                }}>
+                  إجمالي الشكاوى: {filteredComplaints.length}
+                </div>
+                <div className="stat-badge" style={{
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  color: '#EF4444',
+                  padding: '6px 12px',
+                  borderRadius: '6px',
+                  fontWeight: '600',
+                  fontSize: '14px'
+                }}>
+                  شكاوى اليوم: {
+                    filteredComplaints.filter(c => {
+                      const today = new Date().toDateString();
+                      const date = new Date(c.created_at).toDateString();
+                      return date === today;
+                    }).length
+                  }
+                </div>
+              </div>
+            </div>
+
+            {/* Complaints list */}
+            {filteredComplaints.length > 0 ? (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))',
+                gap: '20px'
+              }}>
+                {filteredComplaints.map((complaint) => {
+                  const student = liveStudents.find(s => s.id === complaint.user_id);
+                  return (
+                    <div 
+                      key={complaint.id} 
+                      className="dashboard-card" 
+                      style={{
+                        padding: '20px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '12px',
+                        backgroundColor: 'var(--bg-card)',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+                        transition: 'transform 0.2s, box-shadow 0.2s'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.05)';
+                      }}
+                    >
+                      <div>
+                        {/* Student Details Header */}
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          marginBottom: '16px',
+                          borderBottom: '1px solid var(--border-color)',
+                          paddingBottom: '12px'
+                        }}>
+                          <div style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '50%',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            color: '#3B82F6',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontWeight: 'bold',
+                            fontSize: '16px'
+                          }}>
+                            {student?.full_name ? student.full_name.charAt(0) : 'ط'}
+                          </div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '600', color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {student?.full_name || 'طالب غير معروف'}
+                            </h4>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {student?.email || 'لا يوجد بريد'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Complaint Content */}
+                        <div 
+                          style={{
+                            fontSize: '13px',
+                            color: 'var(--text-main)',
+                            lineHeight: '1.6',
+                            marginBottom: '20px',
+                            maxHeight: '120px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 5,
+                            WebkitBoxOrient: 'vertical',
+                            whiteSpace: 'pre-wrap',
+                            cursor: 'pointer'
+                          }}
+                          onClick={() => {
+                            setSelectedComplaint(complaint);
+                            setIsComplaintModalOpen(true);
+                          }}
+                          title="انقر لقراءة الشكوى كاملة"
+                        >
+                          {complaint.complaint_text}
+                        </div>
+                      </div>
+
+                      {/* Footer Actions */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        borderTop: '1px solid var(--border-color)',
+                        paddingTop: '12px',
+                        marginTop: 'auto'
+                      }}>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                          {new Date(complaint.created_at).toLocaleString('ar-EG', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          {student?.phone && (
+                            <a 
+                              href={getWhatsAppUrl(student.phone)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn btn-whatsapp btn-sm"
+                              style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                textDecoration: 'none'
+                              }}
+                            >
+                              <WhatsAppIcon size={12} />
+                              <span>تواصل</span>
+                            </a>
+                          )}
+                          <button 
+                            onClick={() => {
+                              setSelectedComplaint(complaint);
+                              setIsComplaintModalOpen(true);
+                            }}
+                            className="btn btn-secondary btn-sm"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                          >
+                            <Eye size={12} />
+                            <span>عرض</span>
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteComplaint(complaint.id)}
+                            className="btn btn-danger btn-sm"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                          >
+                            <Trash2 size={12} />
+                            <span>حذف</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="empty-state" style={{ padding: '60px 0' }}>
+                <MessageSquare size={48} style={{ color: 'var(--text-muted)' }} />
+                <p style={{ marginTop: '16px', fontSize: '16px', fontWeight: '500' }}>
+                  {complaintSearchTerm ? 'لا توجد نتائج مطابقة لخيارات البحث.' : 'لا توجد شكاوى أو اقتراحات حالياً في النظام.'}
+                </p>
+              </div>
+            )}
+
+            {/* Complaint Detail Modal */}
+            {isComplaintModalOpen && selectedComplaint && (() => {
+              const student = liveStudents.find(s => s.id === selectedComplaint.user_id);
+              return (
+                <div className="modal-overlay" onClick={() => setIsComplaintModalOpen(false)}>
+                  <div className="modal-container" style={{ maxWidth: '550px' }} onClick={(e) => e.stopPropagation()}>
+                    <div className="modal-header">
+                      <h3 className="modal-title">تفاصيل الشكوى والاقتراح</h3>
+                      <button className="modal-close-btn" onClick={() => setIsComplaintModalOpen(false)}>
+                        <X size={20} />
+                      </button>
+                    </div>
+                    <div className="modal-body" style={{ padding: '20px 0', direction: 'rtl' }}>
+                      {/* Student info */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        padding: '12px',
+                        backgroundColor: 'var(--bg-app)',
+                        borderRadius: '8px',
+                        marginBottom: '20px'
+                      }}>
+                        <div style={{
+                          width: '45px',
+                          height: '45px',
+                          borderRadius: '50%',
+                          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                          color: '#3B82F6',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontWeight: 'bold',
+                          fontSize: '18px'
+                        }}>
+                          {student?.full_name ? student.full_name.charAt(0) : 'ط'}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '600' }}>
+                            {student?.full_name || 'طالب غير معروف'}
+                          </h4>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', gap: '16px', marginTop: '4px' }}>
+                            <span>{student?.email || 'لا يوجد بريد'}</span>
+                            {student?.phone && <span>{student.phone}</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Complaint Text */}
+                      <h5 style={{ margin: '0 0 8px 0', fontSize: '14px', color: 'var(--text-muted)', textAlign: 'right' }}>نص الشكوى / الاقتراح:</h5>
+                      <div style={{
+                        padding: '16px',
+                        backgroundColor: 'var(--bg-app)',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        lineHeight: '1.6',
+                        whiteSpace: 'pre-wrap',
+                        color: 'var(--text-main)',
+                        maxHeight: '250px',
+                        overflowY: 'auto',
+                        border: '1px solid var(--border-color)',
+                        textAlign: 'right'
+                      }}>
+                        {selectedComplaint.complaint_text}
+                      </div>
+
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '12px', textAlign: 'left' }}>
+                        تاريخ الإرسال: {new Date(selectedComplaint.created_at).toLocaleString('ar-EG', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })}
+                      </div>
+                    </div>
+                    <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                      {student?.phone && (
+                        <a 
+                          href={getWhatsAppUrl(student.phone)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="btn btn-whatsapp"
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            textDecoration: 'none'
+                          }}
+                        >
+                          <WhatsAppIcon size={16} />
+                          <span>تواصل عبر الواتساب</span>
+                        </a>
+                      )}
+                      <button 
+                        onClick={() => {
+                          handleDeleteComplaint(selectedComplaint.id);
+                          setIsComplaintModalOpen(false);
+                        }}
+                        className="btn btn-danger"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                      >
+                        <Trash2 size={16} />
+                        <span>حذف الشكوى</span>
+                      </button>
+                      <button className="btn btn-secondary" onClick={() => setIsComplaintModalOpen(false)}>
+                        إغلاق
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+
+        {/* --- PAGE 9: MEDIA --- */}
+        {activeTab === 'media' && (
+          <div 
+            className="tab-pane active animate-fade-in" 
+            style={{ 
+              direction: 'rtl',
+              position: 'relative',
+              minHeight: '450px'
+            }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDragging(true);
+            }}
+            onDragLeave={() => setIsDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setIsDragging(false);
+              handleUploadImage(e);
+            }}
+          >
+            {/* Drag & Drop Overlay */}
+            {isDragging && (
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                bottom: 0,
+                left: 0,
+                right: 0,
+                backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                border: '3px dashed var(--primary)',
+                borderRadius: '12px',
+                zIndex: 10,
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--primary)',
+                pointerEvents: 'none'
+              }}>
+                <Upload size={48} style={{ marginBottom: '16px', animation: 'bounce 1s infinite' }} />
+                <h3 style={{ fontSize: '18px', fontWeight: 'bold' }}>أفلت الصورة هنا لرفعها مباشرة</h3>
+              </div>
+            )}
+
+            {mediaBucketError === 'bucket_not_found' ? (
+              <div className="dashboard-card" style={{ padding: '40px 32px', textAlign: 'center', maxWidth: '600px', margin: '40px auto', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
+                <AlertTriangle size={54} style={{ color: '#EF4444', marginBottom: '20px' }} />
+                <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px', color: 'var(--text-main)' }}>حاوية التخزين (Storage Bucket) غير موجودة</h3>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '24px' }}>
+                  لم يتم العثور على حاوية تخزين باسم <strong style={{ color: 'var(--primary)', direction: 'ltr', display: 'inline-block' }}>'media'</strong> في حساب Supabase الخاص بك. 
+                  لتتمكن من رفع الصور وعرضها، يرجى القيام بإنشائها عبر الخطوات التالية:
+                </p>
+                <div style={{ textAlign: 'right', fontSize: '13px', backgroundColor: 'var(--bg-app)', padding: '20px', borderRadius: '8px', marginBottom: '24px', lineHeight: '2.0', border: '1px solid var(--border-color)' }}>
+                  <ol style={{ margin: 0, paddingRight: '20px', color: 'var(--text-main)' }}>
+                    <li>افتح لوحة تحكم <strong>Supabase Console</strong> لمشروعك.</li>
+                    <li>اذهب إلى قسم <strong>Storage</strong> من القائمة الجانبية اليسرى.</li>
+                    <li>اضغط على زر <strong>New Bucket</strong> وقم بتسميته <strong style={{ color: 'var(--primary)' }}>media</strong> بالظبط.</li>
+                    <li>تأكد من تفعيل خيار <strong>Public bucket</strong> لتكون الصور متاحة بروابط مباشرة.</li>
+                    <li>اذهب لتبويب <strong>Policies</strong> في الـ Storage وقم بإضافة سياسة RLS تمنح صلاحيات القراءة والرفع والحذف للمستخدمين.</li>
+                  </ol>
+                </div>
+                <button 
+                  onClick={() => fetchMedia('media')} 
+                  className="btn btn-primary" 
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '6px' }}
+                >
+                  <RefreshCw size={16} />
+                  <span>لقد قمت بإنشائها، تحقق الآن</span>
+                </button>
+              </div>
+            ) : mediaBucketError ? (
+              <div className="dashboard-card" style={{ padding: '32px', textAlign: 'center', maxWidth: '500px', margin: '40px auto', border: '1px solid var(--border-color)', borderRadius: '12px' }}>
+                <AlertTriangle size={48} style={{ color: '#F59E0B', marginBottom: '16px' }} />
+                <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>حدث خطأ أثناء تحميل الملفات</h3>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>{mediaBucketError}</p>
+                <button onClick={() => fetchMedia()} className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                  <RefreshCw size={14} />
+                  <span>إعادة المحاولة</span>
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Header Toolbar */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '24px',
+                  gap: '16px',
+                  flexWrap: 'wrap'
+                }}>
+                  {/* Search Bar */}
+                  <div className="search-bar" style={{ flex: 1, maxWidth: '400px', marginBottom: 0 }}>
+                    <Search size={18} />
+                    <input 
+                      type="text" 
+                      placeholder="البحث باسم الصورة..." 
+                      value={mediaSearchTerm}
+                      onChange={(e) => setMediaSearchTerm(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px 8px 36px',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '8px',
+                        backgroundColor: 'var(--bg-card)',
+                        color: 'var(--text-main)',
+                        fontSize: '14px',
+                        direction: 'rtl'
+                      }}
+                    />
+                  </div>
+
+                  {/* Actions & Drop zone trigger */}
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                    {/* Bucket Info */}
+                    <div style={{
+                      fontSize: '13px',
+                      color: 'var(--text-muted)',
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1px solid var(--border-color)',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981' }}></span>
+                      <span>الحاوية النشطة: <strong>{mediaBucket}</strong></span>
+                    </div>
+
+                    {/* Upload Button */}
+                    <label 
+                      className="btn btn-primary" 
+                      style={{ 
+                        display: 'inline-flex', 
+                        alignItems: 'center', 
+                        gap: '8px', 
+                        cursor: 'pointer',
+                        padding: '9px 18px',
+                        borderRadius: '8px',
+                        fontSize: '14px',
+                        fontWeight: '600'
+                      }}
+                    >
+                      {mediaUploadLoading ? <RefreshCw size={16} className="animate-spin" /> : <Upload size={16} />}
+                      <span>{mediaUploadLoading ? 'جاري الرفع...' : 'رفع صورة جديدة'}</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={handleUploadImage} 
+                        style={{ display: 'none' }} 
+                        disabled={mediaUploadLoading}
+                      />
+                    </label>
+
+                    <button 
+                      onClick={() => fetchMedia()} 
+                      className="btn btn-secondary" 
+                      style={{ padding: '9px', borderRadius: '8px' }}
+                      title="تحديث القائمة"
+                    >
+                      <RefreshCw size={16} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Media grid */}
+                {mediaLoading ? (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+                      <RefreshCw size={36} className="animate-spin" style={{ color: 'var(--primary)' }} />
+                      <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>جاري تحميل مكتبة الصور...</span>
+                    </div>
+                  </div>
+                ) : filteredMediaFiles.length > 0 ? (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+                    gap: '20px'
+                  }}>
+                    {filteredMediaFiles.map((file) => (
+                      <div 
+                        key={file.id} 
+                        className="dashboard-card" 
+                        style={{
+                          padding: '12px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          justifyContent: 'space-between',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '10px',
+                          backgroundColor: 'var(--bg-card)',
+                          overflow: 'hidden',
+                          boxShadow: '0 2px 6px rgba(0, 0, 0, 0.03)',
+                          transition: 'transform 0.2s, box-shadow 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.transform = 'translateY(-2px)';
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.08)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.03)';
+                        }}
+                      >
+                        {/* Image Preview Container */}
+                        <div style={{
+                          width: '100%',
+                          height: '140px',
+                          borderRadius: '6px',
+                          overflow: 'hidden',
+                          backgroundColor: 'var(--bg-app)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          position: 'relative',
+                          marginBottom: '12px',
+                          border: '1px solid var(--border-color)'
+                        }}>
+                          <img 
+                            src={file.url} 
+                            alt={file.name} 
+                            style={{
+                              maxWidth: '100%',
+                              maxHeight: '100%',
+                              objectFit: 'contain',
+                              display: 'block'
+                            }}
+                          />
+                        </div>
+
+                        {/* Image Meta Info */}
+                        <div style={{ flex: 1, minWidth: 0, marginBottom: '12px' }}>
+                          <div 
+                            style={{ 
+                              fontSize: '13px', 
+                              fontWeight: '600', 
+                              color: 'var(--text-main)', 
+                              overflow: 'hidden', 
+                              textOverflow: 'ellipsis', 
+                              whiteSpace: 'nowrap',
+                              direction: 'ltr',
+                              textAlign: 'right'
+                            }}
+                            title={file.name}
+                          >
+                            {file.name}
+                          </div>
+                          <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            fontSize: '11px', 
+                            color: 'var(--text-muted)',
+                            marginTop: '6px'
+                          }}>
+                            <span>{formatBytes(file.metadata?.size || 0)}</span>
+                            <span>
+                              {file.created_at ? new Date(file.created_at).toLocaleDateString('ar-EG', {
+                                day: 'numeric',
+                                month: 'short'
+                              }) : ''}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div style={{
+                          display: 'flex',
+                          gap: '6px',
+                          borderTop: '1px solid var(--border-color)',
+                          paddingTop: '10px',
+                          marginTop: 'auto'
+                        }}>
+                          <button 
+                            onClick={() => handleCopyUrl(file.url)}
+                            className="btn btn-primary btn-sm"
+                            style={{ 
+                              flex: 1, 
+                              display: 'inline-flex', 
+                              alignItems: 'center', 
+                              justifyContent: 'center',
+                              gap: '4px',
+                              padding: '6px 0',
+                              fontSize: '12px'
+                            }}
+                            title="نسخ الرابط المباشر للعمل به في المناهج"
+                          >
+                            <Copy size={12} />
+                            <span>نسخ الرابط</span>
+                          </button>
+                          
+                          <a 
+                            href={file.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="btn btn-secondary btn-sm"
+                            style={{ 
+                              padding: '6px 8px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            title="عرض في علامة تبويب جديدة"
+                          >
+                            <ExternalLink size={12} />
+                          </a>
+
+                          <button 
+                            onClick={() => handleDeleteImage(file.name)}
+                            className="btn btn-danger btn-sm"
+                            style={{ 
+                              padding: '6px 8px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            title="حذف الصورة"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="empty-state" style={{ padding: '80px 0', border: '2px dashed var(--border-color)', borderRadius: '12px', backgroundColor: 'var(--bg-card)' }}>
+                    <Upload size={54} style={{ color: 'var(--text-muted)', marginBottom: '16px' }} />
+                    <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>
+                      {mediaSearchTerm ? 'لا توجد نتائج مطابقة لاسم الملف.' : 'مكتبة الصور فارغة'}
+                    </h3>
+                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '24px', maxWidth: '320px', margin: '0 auto 20px' }}>
+                      {mediaSearchTerm ? 'يرجى التحقق من الاسم أو تجربة كلمة أخرى.' : 'اسحب الصور وأفلتها هنا مباشرة، أو اضغط على الزر في الأعلى لرفع أول صورة.'}
+                    </p>
+                    {!mediaSearchTerm && (
+                      <label 
+                        className="btn btn-primary" 
+                        style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                      >
+                        <Upload size={14} />
+                        <span>اختر صورة لرفعها</span>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          onChange={handleUploadImage} 
+                          style={{ display: 'none' }} 
+                        />
+                      </label>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
