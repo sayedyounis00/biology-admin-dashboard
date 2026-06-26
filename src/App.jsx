@@ -149,8 +149,12 @@ function App() {
   const [lessonEditForm, setLessonEditForm] = useState({
     title: '',
     video_url: '',
-    content: ''
+    content: '',
+    attachment_urls: []
   });
+  const [courseImagesList, setCourseImagesList] = useState([]);
+  const [attachmentFilesList, setAttachmentFilesList] = useState([]);
+  const [thumbnailDropdownOpen, setThumbnailDropdownOpen] = useState(false);
 
   // Dashboard Revenue Chart tooltip states
   const [hoveredChartPoint, setHoveredChartPoint] = useState(null);
@@ -301,13 +305,36 @@ function App() {
     }
   }, []);
 
+  const fetchBucketFiles = useCallback(async (bucketName) => {
+    try {
+      const { data, error } = await supabase.storage.from(bucketName).list('', {
+        limit: 200,
+        sortBy: { column: 'created_at', order: 'desc' }
+      });
+      if (error || !data) return [];
+      return data
+        .filter(f => f.name !== '.emptyFolderPlaceholder')
+        .map(file => {
+          const { data: { publicUrl } } = supabase.storage.from(bucketName).getPublicUrl(file.name);
+          return { ...file, url: publicUrl };
+        });
+    } catch {
+      return [];
+    }
+  }, []);
+
   const loadLessonsForCourse = useCallback(async (courseId) => {
     setIsLoading(true);
     try {
-      const [courseResult, lessonsResult] = await Promise.all([
+      const [courseResult, lessonsResult, images, attachments] = await Promise.all([
         supabase.from('courses').select('*').eq('id', courseId).single(),
-        supabase.from('lessons').select('*').eq('course_id', courseId).order('order_index', { ascending: true })
+        supabase.from('lessons').select('*').eq('course_id', courseId).order('order_index', { ascending: true }),
+        fetchBucketFiles('course-images'),
+        fetchBucketFiles('attachment')
       ]);
+
+      setCourseImagesList(images);
+      setAttachmentFilesList(attachments);
 
       const course = courseResult.data;
       if (course) {
@@ -327,7 +354,7 @@ function App() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchBucketFiles]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -650,7 +677,8 @@ function App() {
     setLessonEditForm({
       title: lesson.title,
       video_url: lesson.video_url || '',
-      content: lesson.content || ''
+      content: lesson.content || '',
+      attachment_urls: lesson.attachment_urls || []
     });
   };
 
@@ -658,7 +686,8 @@ function App() {
     const fields = {
       title: lessonEditForm.title,
       video_url: lessonEditForm.video_url || null,
-      content: lessonEditForm.content || null
+      content: lessonEditForm.content || null,
+      attachment_urls: lessonEditForm.attachment_urls || []
     };
 
     setIsLoading(true);
@@ -671,6 +700,17 @@ function App() {
       alert("خطأ في حفظ التغييرات: " + error.message);
     }
     setIsLoading(false);
+  };
+
+  const toggleAttachmentUrl = (url) => {
+    setLessonEditForm(prev => {
+      const current = prev.attachment_urls || [];
+      if (current.includes(url)) {
+        return { ...prev, attachment_urls: current.filter(u => u !== url) };
+      } else {
+        return { ...prev, attachment_urls: [...current, url] };
+      }
+    });
   };
 
   // --- ACTIONS: ENROLLMENTS ---
@@ -823,20 +863,26 @@ function App() {
     if (activeTab === 'media') {
       fetchMedia();
     }
-  }, [activeTab, fetchMedia]);
+  }, [activeTab, fetchMedia, mediaBucket]);
 
-  const handleUploadImage = async (e) => {
+  const isAttachmentBucket = mediaBucket === 'attachment';
+
+  const handleUploadFile = async (e) => {
     const files = e.target.files || (e.dataTransfer && e.dataTransfer.files);
     if (!files || files.length === 0) return;
     
     const file = files[0];
-    if (!file.type.startsWith('image/')) {
+
+    // For course-images bucket, only allow images
+    if (!isAttachmentBucket && !file.type.startsWith('image/')) {
       alert("يرجى اختيار ملف صورة صالح (PNG, JPEG, WEBP, GIF)");
       return;
     }
-    
-    if (file.size > 5 * 1024 * 1024) {
-      alert("حجم الصورة كبير جداً. الحد الأقصى هو 5 ميجابايت.");
+
+    const maxSize = isAttachmentBucket ? 50 * 1024 * 1024 : 5 * 1024 * 1024;
+    const maxSizeLabel = isAttachmentBucket ? '50 ميجابايت' : '5 ميجابايت';
+    if (file.size > maxSize) {
+      alert(`حجم الملف كبير جداً. الحد الأقصى هو ${maxSizeLabel}.`);
       return;
     }
 
@@ -853,9 +899,9 @@ function App() {
         });
 
       if (error) {
-        alert("فشل رفع الصورة: " + error.message);
+        alert("فشل رفع الملف: " + error.message);
       } else {
-        alert("تم رفع الصورة بنجاح!");
+        alert(isAttachmentBucket ? "تم رفع المرفق بنجاح!" : "تم رفع الصورة بنجاح!");
         fetchMedia();
       }
     } catch (e) {
@@ -865,16 +911,33 @@ function App() {
     }
   };
 
-  const handleDeleteImage = async (fileName) => {
-    if (!confirm("هل أنت متأكد من حذف هذه الصورة نهائياً؟")) return;
+  const isImageFile = (fileName) => {
+    const ext = fileName?.split('.').pop()?.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext);
+  };
+
+  const getFileIcon = (fileName) => {
+    const ext = fileName?.split('.').pop()?.toLowerCase();
+    if (['pdf'].includes(ext)) return '📄';
+    if (['doc', 'docx'].includes(ext)) return '📝';
+    if (['xls', 'xlsx'].includes(ext)) return '📊';
+    if (['ppt', 'pptx'].includes(ext)) return '📎';
+    if (['mp4', 'mov', 'avi', 'mkv', 'webm'].includes(ext)) return '🎬';
+    if (['mp3', 'wav', 'ogg'].includes(ext)) return '🎵';
+    if (['zip', 'rar', '7z', 'tar', 'gz'].includes(ext)) return '📦';
+    return '📁';
+  };
+
+  const handleDeleteFile = async (fileName) => {
+    if (!confirm("هل أنت متأكد من حذف هذا الملف نهائياً؟")) return;
 
     setMediaLoading(true);
     try {
       const { error } = await supabase.storage.from(mediaBucket).remove([fileName]);
       if (error) {
-        alert("فشل حذف الصورة: " + error.message);
+        alert("فشل حذف الملف: " + error.message);
       } else {
-        alert("تم حذف الصورة بنجاح!");
+        alert("تم حذف الملف بنجاح!");
         fetchMedia();
       }
     } catch (e) {
@@ -886,7 +949,16 @@ function App() {
 
   const handleCopyUrl = (url) => {
     navigator.clipboard.writeText(url);
-    alert("تم نسخ رابط الصورة المباشر بنجاح!");
+    alert("تم نسخ الرابط المباشر بنجاح!");
+  };
+
+  const handleBucketSwitch = (bucketName) => {
+    if (bucketName === mediaBucket) return;
+    setMediaBucket(bucketName);
+    setMediaSearchTerm('');
+    setMediaFiles([]);
+    setMediaBucketError(null);
+    // fetchMedia will trigger via useEffect dependency on mediaBucket
   };
 
   const formatBytes = (bytes, decimals = 2) => {
@@ -1689,15 +1761,149 @@ function App() {
                       />
                     </div>
 
-                    <div className="form-group">
-                      <label className="form-label">رابط الصورة المصغرة (Thumbnail URL)</label>
-                      <input 
-                        type="url" 
-                        className="form-input" 
-                        placeholder="رابط الصورة المصغرة للكورس (مثال: https://...)"
-                        value={editorCourseForm.thumbnail_url}
-                        onChange={(e) => setEditorCourseForm(prev => ({ ...prev, thumbnail_url: e.target.value }))}
-                      />
+                    <div className="form-group" style={{ position: 'relative' }}>
+                      <label className="form-label">الصورة المصغرة للكورس (Thumbnail)</label>
+                      
+                      {/* Selected thumbnail preview */}
+                      <div 
+                        onClick={() => setThumbnailDropdownOpen(!thumbnailDropdownOpen)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '10px 14px',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '10px',
+                          backgroundColor: 'var(--bg-card)',
+                          cursor: 'pointer',
+                          transition: 'border-color 0.2s',
+                          borderColor: thumbnailDropdownOpen ? 'var(--primary)' : 'var(--border-color)'
+                        }}
+                      >
+                        {editorCourseForm.thumbnail_url ? (
+                          <>
+                            <img 
+                              src={editorCourseForm.thumbnail_url} 
+                              alt="thumbnail" 
+                              style={{ width: '44px', height: '44px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--border-color)' }}
+                            />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', direction: 'ltr', textAlign: 'right' }}>
+                                {editorCourseForm.thumbnail_url.split('/').pop()}
+                              </div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>اضغط لتغيير الصورة</div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditorCourseForm(prev => ({ ...prev, thumbnail_url: '' }));
+                              }}
+                              style={{
+                                background: 'rgba(239,68,68,0.1)',
+                                border: 'none',
+                                borderRadius: '6px',
+                                padding: '4px',
+                                cursor: 'pointer',
+                                color: '#EF4444',
+                                display: 'flex',
+                                alignItems: 'center'
+                              }}
+                              title="إزالة الصورة"
+                            >
+                              <X size={14} />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{
+                              width: '44px', height: '44px', borderRadius: '6px',
+                              backgroundColor: 'var(--bg-app)', border: '1px dashed var(--border-color)',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                              <Image size={20} style={{ color: 'var(--text-muted)' }} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>اختر صورة مصغرة من مكتبة الصور</div>
+                            </div>
+                            <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} />
+                          </>
+                        )}
+                      </div>
+
+                      {/* Dropdown */}
+                      {thumbnailDropdownOpen && (
+                        <div style={{
+                          position: 'absolute',
+                          top: '100%',
+                          left: 0,
+                          right: 0,
+                          zIndex: 50,
+                          marginTop: '4px',
+                          backgroundColor: 'var(--bg-card)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '10px',
+                          boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+                          maxHeight: '320px',
+                          overflowY: 'auto'
+                        }}>
+                          {courseImagesList.length > 0 ? (
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))',
+                              gap: '8px',
+                              padding: '12px'
+                            }}>
+                              {courseImagesList.map(img => (
+                                <div
+                                  key={img.id || img.name}
+                                  onClick={() => {
+                                    setEditorCourseForm(prev => ({ ...prev, thumbnail_url: img.url }));
+                                    setThumbnailDropdownOpen(false);
+                                  }}
+                                  style={{
+                                    cursor: 'pointer',
+                                    borderRadius: '8px',
+                                    overflow: 'hidden',
+                                    border: editorCourseForm.thumbnail_url === img.url ? '2px solid var(--primary)' : '2px solid transparent',
+                                    transition: 'all 0.2s',
+                                    backgroundColor: 'var(--bg-app)',
+                                    position: 'relative'
+                                  }}
+                                  title={img.name}
+                                >
+                                  <img 
+                                    src={img.url} 
+                                    alt={img.name}
+                                    style={{ width: '100%', height: '72px', objectFit: 'cover', display: 'block' }}
+                                  />
+                                  {editorCourseForm.thumbnail_url === img.url && (
+                                    <div style={{
+                                      position: 'absolute',
+                                      top: '4px',
+                                      right: '4px',
+                                      backgroundColor: 'var(--primary)',
+                                      borderRadius: '50%',
+                                      width: '18px',
+                                      height: '18px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center'
+                                    }}>
+                                      <CheckCircle size={12} style={{ color: '#fff' }} />
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{ padding: '24px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px' }}>
+                              <Image size={28} style={{ marginBottom: '8px', opacity: 0.5 }} />
+                              <p>لا توجد صور في حاوية صور الكورسات. ارفع صورة أولاً من تبويب "الميديا".</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     <div className="form-group">
@@ -1787,6 +1993,12 @@ function App() {
                                     <span>محتوى نصي</span>
                                   </span>
                                 ) : null}
+                                {lesson.attachment_urls && lesson.attachment_urls.length > 0 ? (
+                                  <span style={{ color: 'var(--primary)' }}>
+                                    <Layers size={12} />
+                                    <span>{lesson.attachment_urls.length} مرفق</span>
+                                  </span>
+                                ) : null}
                               </div>
                             </div>
 
@@ -1843,6 +2055,160 @@ function App() {
                                   value={lessonEditForm.content}
                                   onChange={(e) => setLessonEditForm(prev => ({ ...prev, content: e.target.value }))}
                                 />
+                              </div>
+
+                              {/* --- ATTACHMENTS SELECTOR --- */}
+                              <div className="form-group">
+                                <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <Layers size={14} />
+                                  <span>المرفقات المرتبطة بالدرس</span>
+                                  {lessonEditForm.attachment_urls.length > 0 && (
+                                    <span style={{
+                                      backgroundColor: 'var(--primary)',
+                                      color: '#fff',
+                                      fontSize: '11px',
+                                      fontWeight: '700',
+                                      padding: '2px 8px',
+                                      borderRadius: '10px',
+                                      minWidth: '20px',
+                                      textAlign: 'center'
+                                    }}>
+                                      {lessonEditForm.attachment_urls.length}
+                                    </span>
+                                  )}
+                                </label>
+
+                                {/* Selected attachments list */}
+                                {lessonEditForm.attachment_urls.length > 0 && (
+                                  <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '6px',
+                                    marginBottom: '12px',
+                                    padding: '10px',
+                                    backgroundColor: 'rgba(59,130,246,0.04)',
+                                    borderRadius: '8px',
+                                    border: '1px solid rgba(59,130,246,0.1)'
+                                  }}>
+                                    {lessonEditForm.attachment_urls.map((url, i) => (
+                                      <div key={i} style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        padding: '6px 8px',
+                                        backgroundColor: 'var(--bg-card)',
+                                        borderRadius: '6px',
+                                        border: '1px solid var(--border-color)',
+                                        fontSize: '12px'
+                                      }}>
+                                        <FileText size={14} style={{ color: 'var(--primary)', flexShrink: 0 }} />
+                                        <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', direction: 'ltr', textAlign: 'right', color: 'var(--text-main)' }}>
+                                          {decodeURIComponent(url.split('/').pop())}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => toggleAttachmentUrl(url)}
+                                          style={{
+                                            background: 'rgba(239,68,68,0.1)',
+                                            border: 'none',
+                                            borderRadius: '4px',
+                                            padding: '2px',
+                                            cursor: 'pointer',
+                                            color: '#EF4444',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            flexShrink: 0
+                                          }}
+                                          title="إزالة"
+                                        >
+                                          <X size={12} />
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Available attachments grid */}
+                                <div style={{
+                                  maxHeight: '200px',
+                                  overflowY: 'auto',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '8px',
+                                  backgroundColor: 'var(--bg-app)'
+                                }}>
+                                  {attachmentFilesList.length > 0 ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                      {attachmentFilesList.map(file => {
+                                        const isSelected = (lessonEditForm.attachment_urls || []).includes(file.url);
+                                        const ext = file.name?.split('.').pop()?.toLowerCase();
+                                        const isImg = ['jpg','jpeg','png','gif','webp','svg','bmp'].includes(ext);
+                                        return (
+                                          <div
+                                            key={file.id || file.name}
+                                            onClick={() => toggleAttachmentUrl(file.url)}
+                                            style={{
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '10px',
+                                              padding: '8px 12px',
+                                              cursor: 'pointer',
+                                              transition: 'background-color 0.15s',
+                                              backgroundColor: isSelected ? 'rgba(59,130,246,0.08)' : 'transparent',
+                                              borderBottom: '1px solid var(--border-color)'
+                                            }}
+                                            onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'; }}
+                                            onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                                          >
+                                            {/* Checkbox */}
+                                            <div style={{
+                                              width: '18px',
+                                              height: '18px',
+                                              borderRadius: '4px',
+                                              border: isSelected ? '2px solid var(--primary)' : '2px solid var(--border-color)',
+                                              backgroundColor: isSelected ? 'var(--primary)' : 'transparent',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              flexShrink: 0,
+                                              transition: 'all 0.15s'
+                                            }}>
+                                              {isSelected && <CheckCircle size={12} style={{ color: '#fff' }} />}
+                                            </div>
+
+                                            {/* Preview */}
+                                            {isImg ? (
+                                              <img src={file.url} alt="" style={{ width: '32px', height: '32px', borderRadius: '4px', objectFit: 'cover', flexShrink: 0 }} />
+                                            ) : (
+                                              <div style={{
+                                                width: '32px', height: '32px', borderRadius: '4px',
+                                                backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                fontSize: '16px', flexShrink: 0
+                                              }}>
+                                                {getFileIcon(file.name)}
+                                              </div>
+                                            )}
+
+                                            {/* File info */}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                              <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-main)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', direction: 'ltr', textAlign: 'right' }}>
+                                                {file.name}
+                                              </div>
+                                              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '1px', direction: 'ltr', textAlign: 'right' }}>
+                                                {ext?.toUpperCase()} • {formatBytes(file.metadata?.size || 0)}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>
+                                      <FileText size={24} style={{ marginBottom: '6px', opacity: 0.5 }} />
+                                      <p>لا توجد مرفقات متاحة. ارفع ملفات أولاً من تبويب "الميديا" بعد التبديل لحاوية المرفقات.</p>
+                                    </div>
+                                  )}
+                                </div>
                               </div>
 
                               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '4px' }}>
@@ -2483,7 +2849,7 @@ function App() {
                         <div style={{ display: 'flex', gap: '8px' }}>
                           {student?.phone && (
                             <a 
-                              href={getWhatsAppUrl(student.phone)}
+                              href={`${getWhatsAppUrl(student.phone)}?text=${encodeURIComponent('تم حل مشكلتك تقدر تشوف حسابك الان')}`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="btn btn-whatsapp btn-sm"
@@ -2612,7 +2978,7 @@ function App() {
                     <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                       {student?.phone && (
                         <a 
-                          href={getWhatsAppUrl(student.phone)}
+                          href={`${getWhatsAppUrl(student.phone)}?text=${encodeURIComponent('تم حل مشكلتك تقدر تشوف حسابك الان')}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="btn btn-whatsapp"
@@ -2666,7 +3032,7 @@ function App() {
             onDrop={(e) => {
               e.preventDefault();
               setIsDragging(false);
-              handleUploadImage(e);
+              handleUploadFile(e);
             }}
           >
             {/* Drag & Drop Overlay */}
@@ -2689,9 +3055,71 @@ function App() {
                 pointerEvents: 'none'
               }}>
                 <Upload size={48} style={{ marginBottom: '16px', animation: 'bounce 1s infinite' }} />
-                <h3 style={{ fontSize: '18px', fontWeight: 'bold' }}>أفلت الصورة هنا لرفعها مباشرة</h3>
+                <h3 style={{ fontSize: '18px', fontWeight: 'bold' }}>
+                  {isAttachmentBucket ? 'أفلت الملف هنا لرفعه مباشرة' : 'أفلت الصورة هنا لرفعها مباشرة'}
+                </h3>
               </div>
             )}
+
+            {/* === BUCKET SWITCHER === */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'center',
+              marginBottom: '24px'
+            }}>
+              <div style={{
+                display: 'inline-flex',
+                backgroundColor: 'var(--bg-card)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '12px',
+                padding: '4px',
+                gap: '4px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+              }}>
+                <button
+                  onClick={() => handleBucketSwitch('course-images')}
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: '9px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: mediaBucket === 'course-images' ? '700' : '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    transition: 'all 0.25s ease',
+                    backgroundColor: mediaBucket === 'course-images' ? 'var(--primary)' : 'transparent',
+                    color: mediaBucket === 'course-images' ? '#fff' : 'var(--text-muted)',
+                    boxShadow: mediaBucket === 'course-images' ? '0 2px 8px rgba(59,130,246,0.3)' : 'none'
+                  }}
+                >
+                  <Image size={16} />
+                  <span>صور الكورسات</span>
+                </button>
+                <button
+                  onClick={() => handleBucketSwitch('attachment')}
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: '9px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: mediaBucket === 'attachment' ? '700' : '500',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    transition: 'all 0.25s ease',
+                    backgroundColor: mediaBucket === 'attachment' ? 'var(--primary)' : 'transparent',
+                    color: mediaBucket === 'attachment' ? '#fff' : 'var(--text-muted)',
+                    boxShadow: mediaBucket === 'attachment' ? '0 2px 8px rgba(59,130,246,0.3)' : 'none'
+                  }}
+                >
+                  <FileText size={16} />
+                  <span>المرفقات</span>
+                </button>
+              </div>
+            </div>
 
             {mediaBucketError === 'bucket_not_found' ? (
               <div className="dashboard-card" style={{ padding: '40px 32px', textAlign: 'center', maxWidth: '600px', margin: '40px auto', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' }}>
@@ -2745,7 +3173,7 @@ function App() {
                     <Search size={18} />
                     <input 
                       type="text" 
-                      placeholder="البحث باسم الصورة..." 
+                      placeholder={isAttachmentBucket ? 'البحث باسم المرفق...' : 'البحث باسم الصورة...'}
                       value={mediaSearchTerm}
                       onChange={(e) => setMediaSearchTerm(e.target.value)}
                       style={{
@@ -2794,11 +3222,11 @@ function App() {
                       }}
                     >
                       {mediaUploadLoading ? <RefreshCw size={16} className="animate-spin" /> : <Upload size={16} />}
-                      <span>{mediaUploadLoading ? 'جاري الرفع...' : 'رفع صورة جديدة'}</span>
+                      <span>{mediaUploadLoading ? 'جاري الرفع...' : (isAttachmentBucket ? 'رفع مرفق جديد' : 'رفع صورة جديدة')}</span>
                       <input 
                         type="file" 
-                        accept="image/*" 
-                        onChange={handleUploadImage} 
+                        accept={isAttachmentBucket ? '*/*' : 'image/*'}
+                        onChange={handleUploadFile} 
                         style={{ display: 'none' }} 
                         disabled={mediaUploadLoading}
                       />
@@ -2854,7 +3282,7 @@ function App() {
                           e.currentTarget.style.boxShadow = '0 2px 6px rgba(0, 0, 0, 0.03)';
                         }}
                       >
-                        {/* Image Preview Container */}
+                        {/* File Preview Container */}
                         <div style={{
                           width: '100%',
                           height: '140px',
@@ -2868,16 +3296,40 @@ function App() {
                           marginBottom: '12px',
                           border: '1px solid var(--border-color)'
                         }}>
-                          <img 
-                            src={file.url} 
-                            alt={file.name} 
-                            style={{
-                              maxWidth: '100%',
-                              maxHeight: '100%',
-                              objectFit: 'contain',
-                              display: 'block'
-                            }}
-                          />
+                          {isImageFile(file.name) ? (
+                            <img 
+                              src={file.url} 
+                              alt={file.name} 
+                              style={{
+                                maxWidth: '100%',
+                                maxHeight: '100%',
+                                objectFit: 'contain',
+                                display: 'block'
+                              }}
+                            />
+                          ) : (
+                            <div style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              gap: '8px'
+                            }}>
+                              <span style={{ fontSize: '42px' }}>{getFileIcon(file.name)}</span>
+                              <span style={{
+                                fontSize: '11px',
+                                color: 'var(--text-muted)',
+                                textTransform: 'uppercase',
+                                fontWeight: '700',
+                                letterSpacing: '0.5px',
+                                backgroundColor: 'var(--bg-card)',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                border: '1px solid var(--border-color)'
+                              }}>
+                                {file.name?.split('.').pop()?.toUpperCase()}
+                              </span>
+                            </div>
+                          )}
                         </div>
 
                         {/* Image Meta Info */}
@@ -2957,7 +3409,7 @@ function App() {
                           </a>
 
                           <button 
-                            onClick={() => handleDeleteImage(file.name)}
+                            onClick={() => handleDeleteFile(file.name)}
                             className="btn btn-danger btn-sm"
                             style={{ 
                               padding: '6px 8px',
@@ -2965,7 +3417,7 @@ function App() {
                               alignItems: 'center',
                               justifyContent: 'center'
                             }}
-                            title="حذف الصورة"
+                            title="حذف الملف"
                           >
                             <Trash2 size={12} />
                           </button>
@@ -2977,10 +3429,10 @@ function App() {
                   <div className="empty-state" style={{ padding: '80px 0', border: '2px dashed var(--border-color)', borderRadius: '12px', backgroundColor: 'var(--bg-card)' }}>
                     <Upload size={54} style={{ color: 'var(--text-muted)', marginBottom: '16px' }} />
                     <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>
-                      {mediaSearchTerm ? 'لا توجد نتائج مطابقة لاسم الملف.' : 'مكتبة الصور فارغة'}
+                      {mediaSearchTerm ? 'لا توجد نتائج مطابقة لاسم الملف.' : (isAttachmentBucket ? 'مكتبة المرفقات فارغة' : 'مكتبة الصور فارغة')}
                     </h3>
                     <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '24px', maxWidth: '320px', margin: '0 auto 20px' }}>
-                      {mediaSearchTerm ? 'يرجى التحقق من الاسم أو تجربة كلمة أخرى.' : 'اسحب الصور وأفلتها هنا مباشرة، أو اضغط على الزر في الأعلى لرفع أول صورة.'}
+                      {mediaSearchTerm ? 'يرجى التحقق من الاسم أو تجربة كلمة أخرى.' : (isAttachmentBucket ? 'اسحب الملفات وأفلتها هنا مباشرة، أو اضغط على الزر في الأعلى لرفع أول مرفق.' : 'اسحب الصور وأفلتها هنا مباشرة، أو اضغط على الزر في الأعلى لرفع أول صورة.')}
                     </p>
                     {!mediaSearchTerm && (
                       <label 
@@ -2988,11 +3440,11 @@ function App() {
                         style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
                       >
                         <Upload size={14} />
-                        <span>اختر صورة لرفعها</span>
+                        <span>{isAttachmentBucket ? 'اختر مرفق لرفعه' : 'اختر صورة لرفعها'}</span>
                         <input 
                           type="file" 
-                          accept="image/*" 
-                          onChange={handleUploadImage} 
+                          accept={isAttachmentBucket ? '*/*' : 'image/*'}
+                          onChange={handleUploadFile} 
                           style={{ display: 'none' }} 
                         />
                       </label>
