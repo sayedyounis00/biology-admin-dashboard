@@ -156,6 +156,15 @@ function App() {
   const [attachmentFilesList, setAttachmentFilesList] = useState([]);
   const [thumbnailDropdownOpen, setThumbnailDropdownOpen] = useState(false);
 
+  // Exams feature states
+  const [examForm, setExamForm] = useState({
+    title: '',
+    year_id: '',
+    exam_url: ''
+  });
+  const [allExams, setAllExams] = useState([]);
+  const [allExamSubmissions, setAllExamSubmissions] = useState([]);
+
   // Dashboard Revenue Chart tooltip states
   const [hoveredChartPoint, setHoveredChartPoint] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
@@ -173,7 +182,9 @@ function App() {
         coursesRes,
         requestsRes,
         yearsRes,
-        complaintsRes
+        complaintsRes,
+        examsRes,
+        submissionsRes
       ] = await Promise.all([
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
         supabase.from('enrollments').select('*').order('enrolled_at', { ascending: false }),
@@ -182,7 +193,9 @@ function App() {
         supabase.from('courses').select('*').order('created_at', { ascending: false }),
         supabase.from('course_requests').select('*').order('created_at', { ascending: false }),
         supabase.from('years').select('*').order('order_index'),
-        supabase.from('complaints').select('*').order('created_at', { ascending: false })
+        supabase.from('complaints').select('*').order('created_at', { ascending: false }),
+        supabase.from('exams').select('*').order('created_at', { ascending: false }).then(res => res).catch(err => ({ error: err, data: [] })),
+        supabase.from('exam_submissions').select('*').order('submitted_at', { ascending: false }).then(res => res).catch(err => ({ error: err, data: [] }))
       ]);
 
       if (profilesRes.error) throw profilesRes.error;
@@ -202,7 +215,8 @@ function App() {
       const courseRequestsData = requestsRes.data || [];
       const yearsData = yearsRes.data || [];
       const complaintsData = complaintsRes.data || [];
-
+      const examsData = examsRes?.data || [];
+      const submissionsData = submissionsRes?.data || [];
       // Set live states
       setLiveStudents(profilesData);
       setLiveEnrollments(enrollmentsData);
@@ -212,6 +226,8 @@ function App() {
       setLiveCourseRequests(courseRequestsData);
       setYears(yearsData);
       setLiveComplaints(complaintsData);
+      setAllExams(examsData);
+      setAllExamSubmissions(submissionsData);
       setDbConnected(true);
 
       // Pre-calculate newCourseForm default year if needed
@@ -826,6 +842,62 @@ function App() {
     setIsLoading(false);
   };
 
+  const handleAddExam = async (e) => {
+    e.preventDefault();
+    if (!examForm.title || !examForm.year_id || !examForm.exam_url) {
+      alert("يرجى إكمال جميع الحقول");
+      return;
+    }
+    
+    setIsLoading(true);
+    const { error } = await supabase.from('exams').insert([
+      {
+        title: examForm.title,
+        year_id: examForm.year_id,
+        exam_url: examForm.exam_url
+      }
+    ]);
+    
+    if (error) {
+      alert("حدث خطأ أثناء إضافة الامتحان: " + error.message);
+    } else {
+      alert("تمت إضافة الامتحان بنجاح");
+      setExamForm({ title: '', year_id: '', exam_url: '' });
+      await fetchData();
+    }
+    setIsLoading(false);
+  };
+
+  const handleDeleteExam = async (examId) => {
+    if (!confirm("هل أنت متأكد من حذف هذا الامتحان؟")) return;
+    
+    setIsLoading(true);
+    const { error } = await supabase.from('exams').delete().eq('id', examId);
+    
+    if (error) {
+      alert("حدث خطأ أثناء حذف الامتحان: " + error.message);
+    } else {
+      alert("تم حذف الامتحان بنجاح");
+      await fetchData();
+    }
+    setIsLoading(false);
+  };
+
+  const handleDeleteSubmission = async (submissionId) => {
+    if (!confirm("هل أنت متأكد من حذف هذا التسليم؟ سيتيح ذلك للطالب إعادة تسليم الامتحان.")) return;
+    
+    setIsLoading(true);
+    const { error } = await supabase.from('exam_submissions').delete().eq('id', submissionId);
+    
+    if (error) {
+      alert("حدث خطأ أثناء حذف التسليم: " + error.message);
+    } else {
+      alert("تم حذف التسليم بنجاح");
+      await fetchData();
+    }
+    setIsLoading(false);
+  };
+
   const fetchMedia = useCallback(async (bucketName = mediaBucket) => {
     setMediaLoading(true);
     setMediaBucketError(null);
@@ -862,8 +934,18 @@ function App() {
   useEffect(() => {
     if (activeTab === 'media') {
       fetchMedia();
+    } else if (activeTab === 'exams') {
+      const loadAttachments = async () => {
+        try {
+          const files = await fetchBucketFiles('attachment');
+          setAttachmentFilesList(files);
+        } catch (e) {
+          console.error("Error fetching attachments for exams", e);
+        }
+      };
+      loadAttachments();
     }
-  }, [activeTab, fetchMedia, mediaBucket]);
+  }, [activeTab, fetchMedia, mediaBucket, fetchBucketFiles]);
 
   const isAttachmentBucket = mediaBucket === 'attachment';
 
@@ -1252,6 +1334,18 @@ function App() {
                 <span>مكتبة الوسائط</span>
               </button>
             </li>
+            <li>
+              <button 
+                className={`menu-item-btn ${activeTab === 'exams' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('exams');
+                  setEditingCourseId(null);
+                }}
+              >
+                <FileText />
+                <span>إدارة الامتحانات</span>
+              </button>
+            </li>
           </ul>
         </nav>
 
@@ -1286,6 +1380,7 @@ function App() {
                   {activeTab === 'warnings' && 'نظام الإنذار المبكر'}
                   {activeTab === 'complaints' && 'الشكاوى والاقتراحات'}
                   {activeTab === 'media' && 'مكتبة الوسائط والصور'}
+                  {activeTab === 'exams' && 'إدارة وإضافة الامتحانات'}
                 </h1>
                 <p>
                   {activeTab === 'overview' && 'مرحباً بك مجدداً، أ. أحمد. إليك آخر مستجدات المنصة التعليمية لهذا اليوم.'}
@@ -1297,6 +1392,7 @@ function App() {
                   {activeTab === 'warnings' && 'تتبع تلقائي للطلاب المعرضين للتعثر أو الانقطاع الدراسي واتخاذ الإجراءات الوقائية.'}
                   {activeTab === 'complaints' && 'متابعة شكاوى الطلاب، رسائل الدعم الفني، والملاحظات المستلمة للعمل على حلها.'}
                   {activeTab === 'media' && 'رفع وإدارة صور المنصة، واستخراج روابطها المباشرة لاستخدامها في تفاصيل الكورسات والمحاضرات.'}
+                  {activeTab === 'exams' && 'إضافة امتحانات للطلاب وتحديد الصفوف الدراسية المستهدفة ومرفقات الامتحانات.'}
                 </p>
               </>
             )}
@@ -3770,6 +3866,218 @@ function App() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* --- PAGE 10: EXAMS --- */}
+        {activeTab === 'exams' && (
+          <div className="tab-pane active animate-fade-in" style={{ direction: 'rtl' }}>
+            <div className="content-card">
+              <div className="card-header-area">
+                <div>
+                  <h3 className="card-title">إضافة امتحان جديد</h3>
+                  <span className="card-subtitle">اختر ملف الامتحان من المرفقات وحدد الصف الدراسي</span>
+                </div>
+                <FileText style={{ color: 'var(--primary)' }} />
+              </div>
+
+              <div style={{ padding: '24px' }}>
+                <form 
+                  onSubmit={handleAddExam}
+                  style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '600px' }}
+                >
+                  <div className="form-group">
+                    <label className="form-label">عنوان الامتحان</label>
+                    <input 
+                      type="text" 
+                      className="form-input" 
+                      placeholder="اكتب عنوان أو اسم الامتحان هنا..."
+                      value={examForm.title}
+                      onChange={(e) => setExamForm(prev => ({ ...prev, title: e.target.value }))}
+                      required
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">الصف الدراسي المستهدف</label>
+                    <select 
+                      className="form-select"
+                      value={examForm.year_id}
+                      onChange={(e) => setExamForm(prev => ({ ...prev, year_id: e.target.value }))}
+                      required
+                    >
+                      <option value="" disabled>-- اختر الصف الدراسي --</option>
+                      {currentYears.map(year => (
+                        <option key={year.id} value={year.id}>{year.title}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="form-group">
+                    <label className="form-label">ملف الامتحان (من المرفقات)</label>
+                    <select 
+                      className="form-select"
+                      value={examForm.exam_url}
+                      onChange={(e) => setExamForm(prev => ({ ...prev, exam_url: e.target.value }))}
+                      required
+                    >
+                      <option value="" disabled>-- اختر ملف الامتحان --</option>
+                      {attachmentFilesList && attachmentFilesList.length > 0 ? (
+                        attachmentFilesList.map((file, idx) => (
+                          <option key={idx} value={file.url}>{decodeURIComponent(file.name)}</option>
+                        ))
+                      ) : (
+                        <option value="" disabled>لا توجد ملفات مرفقة، الرجاء رفعها في قسم الميديا أولاً</option>
+                      )}
+                    </select>
+                    {examForm.exam_url && (
+                      <div style={{ marginTop: '10px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                        الملف المختار: <a href={examForm.exam_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>معاينة الملف</a>
+                      </div>
+                    )}
+                  </div>
+
+                  <button type="submit" className="btn btn-primary" style={{ marginTop: '10px', alignSelf: 'flex-start' }}>
+                    حفظ الامتحان
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            {/* Exams List */}
+            <div className="content-card" style={{ marginTop: '24px' }}>
+              <div className="card-header-area">
+                <div>
+                  <h3 className="card-title">الامتحانات المضافة</h3>
+                  <span className="card-subtitle">قائمة بجميع الامتحانات المضافة للطلاب</span>
+                </div>
+              </div>
+              <div className="table-container">
+                {allExams && allExams.length > 0 ? (
+                  <table className="dashboard-table">
+                    <thead>
+                      <tr>
+                        <th>عنوان الامتحان</th>
+                        <th>الصف الدراسي</th>
+                        <th>تاريخ الإضافة</th>
+                        <th>العمليات</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allExams.map(exam => (
+                        <tr key={exam.id}>
+                          <td>
+                            <a href={exam.exam_url} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--text-main)', fontWeight: '600', textDecoration: 'none' }}>
+                              {exam.title}
+                            </a>
+                          </td>
+                          <td>{currentYears.find(y => y.id === exam.year_id)?.title || 'غير محدد'}</td>
+                          <td>{new Date(exam.created_at).toLocaleDateString('ar-EG')}</td>
+                          <td>
+                            <div className="actions-cell">
+                              <button 
+                                className="action-btn delete-btn" 
+                                onClick={() => handleDeleteExam(exam.id)}
+                                title="حذف الامتحان"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="empty-state">
+                    <FileText size={48} />
+                    <p style={{ marginTop: '16px', fontSize: '15px' }}>لا توجد امتحانات مضافة حتى الآن.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Exam Submissions List */}
+            <div className="content-card" style={{ marginTop: '24px' }}>
+              <div className="card-header-area">
+                <div>
+                  <h3 className="card-title">تسليمات الامتحانات</h3>
+                  <span className="card-subtitle">الطلاب الذين قاموا بالرد وإرسال الامتحانات</span>
+                </div>
+              </div>
+              <div className="table-container">
+                {allExamSubmissions && allExamSubmissions.length > 0 ? (
+                  <table className="dashboard-table">
+                    <thead>
+                      <tr>
+                        <th>اسم الطالب</th>
+                        <th>الامتحان</th>
+                        <th>وقت التسليم</th>
+                        <th>التواصل</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allExamSubmissions.map(sub => {
+                        const student = liveStudents.find(s => s.id === sub.user_id);
+                        const exam = allExams.find(e => e.id === sub.exam_id);
+                        
+                        // Format phone number for WhatsApp (assuming Egypt +2)
+                        let waLink = '#';
+                        if (student?.phone) {
+                          const cleanPhone = student.phone.replace(/\D/g, '');
+                          const finalPhone = cleanPhone.startsWith('0') ? '2' + cleanPhone : cleanPhone;
+                          waLink = `https://wa.me/${finalPhone}`;
+                        }
+
+                        return (
+                          <tr key={sub.id}>
+                            <td>
+                              <div style={{ fontWeight: '600', color: 'var(--text-main)' }}>
+                                {student ? student.full_name : 'غير متوفر'}
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                {student?.phone || ''}
+                              </div>
+                            </td>
+                            <td>{exam ? exam.title : 'غير متوفر'}</td>
+                            <td>{new Date(sub.submitted_at).toLocaleString('ar-EG')}</td>
+                            <td>
+                              <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                {student?.phone ? (
+                                  <a 
+                                    href={waLink}
+                                    target="_blank" 
+                                    rel="noopener noreferrer" 
+                                    className="btn btn-primary" 
+                                    style={{ padding: '6px 12px', fontSize: '13px', backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff', textDecoration: 'none', display: 'inline-block' }}
+                                  >
+                                    مراسلة واتساب
+                                  </a>
+                                ) : (
+                                  <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>لا يوجد رقم</span>
+                                )}
+                                <button 
+                                  className="action-btn delete-btn" 
+                                  onClick={() => handleDeleteSubmission(sub.id)}
+                                  title="إلغاء تسليم الطالب"
+                                >
+                                  <Trash2 size={18} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="empty-state">
+                    <FileText size={48} />
+                    <p style={{ marginTop: '16px', fontSize: '15px' }}>لا توجد تسليمات للامتحانات حتى الآن.</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
