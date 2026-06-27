@@ -78,7 +78,13 @@ function App() {
   const [liveEnrollments, setLiveEnrollments] = useState([]);
   const [liveLessons, setLiveLessons] = useState([]);
   const [liveLessonProgress, setLiveLessonProgress] = useState([]);
-  const [liveEnrollmentCounts, setLiveEnrollmentCounts] = useState({});
+  const liveEnrollmentCounts = useMemo(() => {
+    const counts = {};
+    liveEnrollments.forEach(e => {
+      counts[e.course_id] = (counts[e.course_id] || 0) + 1;
+    });
+    return counts;
+  }, [liveEnrollments]);
   const [years, setYears] = useState([]);
   const [liveComplaints, setLiveComplaints] = useState([]);
   const [complaintSearchTerm, setComplaintSearchTerm] = useState('');
@@ -91,15 +97,66 @@ function App() {
   const [mediaUploadLoading, setMediaUploadLoading] = useState(false);
   const [mediaBucketError, setMediaBucketError] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [liveStats, setLiveStats] = useState({
-    totalStudents: 0,
-    totalCourses: 0,
-    totalRevenue: 0,
-    activeEnrollments: 0,
-    recentSignups: [],
-    recentEnrollments: [],
-    chartData: []
-  });
+  const liveStats = useMemo(() => {
+    const studentCount = liveStudents.length;
+    const courseCount = liveCourses.length;
+
+    const profileMap = {};
+    liveStudents.forEach(p => { profileMap[p.id] = p; });
+
+    const courseMap = {};
+    liveCourses.forEach(c => { courseMap[c.id] = c; });
+
+    const enrichedEnrollments = liveEnrollments.map(e => ({
+      ...e,
+      profile: profileMap[e.user_id] || { full_name: 'طالب غير معروف', email: 'N/A' },
+      course: courseMap[e.course_id] || { title: 'كورس غير معروف', price: 0 }
+    }));
+
+    const totalRev = enrichedEnrollments.reduce((sum, e) => sum + (Number(e.course?.price) || 0), 0);
+
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+    const activeThisMonth = enrichedEnrollments.filter(e => new Date(e.enrolled_at) >= startOfMonth).length;
+
+    const chartPoints = [];
+    const now = new Date();
+    for (let i = 9; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i * 3);
+      const dateStr = d.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' });
+      
+      const dayIntervalEnrollments = enrichedEnrollments.filter(e => {
+        const eDate = new Date(e.enrolled_at);
+        const diffTime = Math.abs(now - eDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        return diffDays <= (i * 3) && diffDays > ((i - 1) * 3);
+      });
+
+      const rev = dayIntervalEnrollments.reduce((sum, e) => sum + (Number(e.course?.price) || 0), 0);
+      chartPoints.push({ label: dateStr, value: rev });
+    }
+
+    const finalChart = chartPoints.every(p => p.value === 0) 
+      ? [
+          { label: '10 أيام مضت', value: 0 },
+          { label: '7 أيام مضت', value: totalRev * 0.3 },
+          { label: '4 أيام مضت', value: totalRev * 0.7 },
+          { label: 'اليوم', value: totalRev }
+        ]
+      : chartPoints;
+
+    return {
+      totalStudents: studentCount,
+      totalCourses: courseCount,
+      totalRevenue: totalRev,
+      activeEnrollments: activeThisMonth,
+      recentSignups: liveStudents.slice(0, 5),
+      recentEnrollments: enrichedEnrollments.slice(0, 5),
+      chartData: finalChart
+    };
+  }, [liveStudents, liveCourses, liveEnrollments]);
 
   // --- TAB-SPECIFIC FILTER & INTERACTION STATES ---
   // Courses search/filter
@@ -239,79 +296,6 @@ function App() {
           return prev;
         });
       }
-
-      // Enrollment counts per course
-      const counts = {};
-      enrollmentsData.forEach(e => {
-        counts[e.course_id] = (counts[e.course_id] || 0) + 1;
-      });
-      setLiveEnrollmentCounts(counts);
-
-      // Stats Calculation
-      const studentCount = profilesData.length;
-      const courseCount = coursesData.length;
-
-      // Construct maps for fast lookup during enrichment
-      const profileMap = {};
-      profilesData.forEach(p => {
-        profileMap[p.id] = p;
-      });
-
-      const courseMap = {};
-      coursesData.forEach(c => {
-        courseMap[c.id] = c;
-      });
-
-      const enrichedEnrollments = enrollmentsData.map(e => ({
-        ...e,
-        profile: profileMap[e.user_id] || { full_name: 'طالب غير معروف', email: 'N/A' },
-        course: courseMap[e.course_id] || { title: 'كورس غير معروف', price: 0 }
-      }));
-
-      const totalRev = enrichedEnrollments.reduce((sum, e) => sum + (Number(e.course?.price) || 0), 0);
-
-      const startOfMonth = new Date();
-      startOfMonth.setDate(1);
-      startOfMonth.setHours(0, 0, 0, 0);
-      const activeThisMonth = enrichedEnrollments.filter(e => new Date(e.enrolled_at) >= startOfMonth).length;
-
-      // Chart Calculations
-      const chartPoints = [];
-      const now = new Date();
-      for (let i = 9; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(now.getDate() - i * 3);
-        const dateStr = d.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' });
-        
-        const dayIntervalEnrollments = enrichedEnrollments.filter(e => {
-          const eDate = new Date(e.enrolled_at);
-          const diffTime = Math.abs(now - eDate);
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          return diffDays <= (i * 3) && diffDays > ((i - 1) * 3);
-        });
-
-        const rev = dayIntervalEnrollments.reduce((sum, e) => sum + (Number(e.course?.price) || 0), 0);
-        chartPoints.push({ label: dateStr, value: rev });
-      }
-
-      const finalChart = chartPoints.every(p => p.value === 0) 
-        ? [
-            { label: '10 أيام مضت', value: 0 },
-            { label: '7 أيام مضت', value: totalRev * 0.3 },
-            { label: '4 أيام مضت', value: totalRev * 0.7 },
-            { label: 'اليوم', value: totalRev }
-          ]
-        : chartPoints;
-
-      setLiveStats({
-        totalStudents: studentCount,
-        totalCourses: courseCount,
-        totalRevenue: totalRev,
-        activeEnrollments: activeThisMonth,
-        recentSignups: profilesData.slice(0, 5),
-        recentEnrollments: enrichedEnrollments.slice(0, 5),
-        chartData: finalChart
-      });
 
     } catch (err) {
       console.warn("Could not load data from Supabase", err);
@@ -525,7 +509,7 @@ function App() {
       .eq('id', courseId);
     
     if (!error) {
-      await fetchData();
+      setLiveCourses(prev => prev.map(c => c.id === courseId ? { ...c, is_published: !currentStatus } : c));
     } else {
       alert("خطأ في تحديث حالة النشر: " + error.message);
     }
@@ -547,7 +531,7 @@ function App() {
     
     const { error } = await supabase.from('courses').delete().eq('id', courseId);
     if (!error) {
-      await fetchData();
+      setLiveCourses(prev => prev.filter(c => c.id !== courseId));
       if (editingCourseId === courseId) setEditingCourseId(null);
     } else {
       alert("خطأ في حذف الكورس: " + error.message);
@@ -574,7 +558,7 @@ function App() {
       .single();
 
     if (!error && data) {
-      await fetchData();
+      setLiveCourses(prev => [data, ...prev]);
       setIsNewCourseModalOpen(false);
       setNewCourseForm({ title: '', description: '', year_id: years[0]?.id, price: 0, thumbnail_url: '' });
       setEditingCourseId(data.id);
@@ -603,7 +587,14 @@ function App() {
 
     if (!error) {
       alert("تم تعديل الكورس بنجاح!");
-      await fetchData();
+      setLiveCourses(prev => prev.map(c => c.id === editingCourseId ? { ...c, 
+        title: editorCourseForm.title,
+        description: editorCourseForm.description,
+        price: Number(editorCourseForm.price) || 0,
+        year_id: editorCourseForm.year_id,
+        thumbnail_url: editorCourseForm.thumbnail_url || null,
+        is_published: editorCourseForm.is_published
+      } : c));
     } else {
       alert("خطأ في تحديث البيانات: " + error.message);
     }
@@ -631,7 +622,7 @@ function App() {
 
     if (!error && data) {
       setEditorLessons(prev => [...prev, data]);
-      await fetchData();
+      setLiveLessons(prev => [...prev, data]);
       handleOpenLessonEdit(data);
     } else {
       alert("خطأ في إضافة الدرس: " + error.message);
@@ -653,7 +644,7 @@ function App() {
           remaining[i].order_index = i;
         }
       }
-      await fetchData();
+      setLiveLessons(prev => prev.filter(l => l.id !== lessonId));
       setEditorLessons(remaining);
       if (activeLessonEditId === lessonId) setActiveLessonEditId(null);
     } else {
@@ -684,7 +675,18 @@ function App() {
       supabase.from('lessons').update({ order_index: list[index].order_index }).eq('id', list[index].id),
       supabase.from('lessons').update({ order_index: list[targetIndex].order_index }).eq('id', list[targetIndex].id)
     ]);
-    await fetchData();
+    // Optionally update liveLessons but editorLessons is already updated
+    setLiveLessons(prev => {
+      const newList = [...prev];
+      const idx1 = newList.findIndex(l => l.id === list[index].id);
+      const idx2 = newList.findIndex(l => l.id === list[targetIndex].id);
+      if (idx1 !== -1 && idx2 !== -1) {
+        const temp = newList[idx1].order_index;
+        newList[idx1].order_index = newList[idx2].order_index;
+        newList[idx2].order_index = temp;
+      }
+      return newList;
+    });
     setIsLoading(false);
   };
 
@@ -710,7 +712,7 @@ function App() {
     const { error } = await supabase.from('lessons').update(fields).eq('id', lessonId);
     if (!error) {
       setEditorLessons(prev => prev.map(l => l.id === lessonId ? { ...l, ...fields } : l));
-      await fetchData();
+      setLiveLessons(prev => prev.map(l => l.id === lessonId ? { ...l, ...fields } : l));
       setActiveLessonEditId(null);
     } else {
       alert("خطأ في حفظ التغييرات: " + error.message);
@@ -750,7 +752,7 @@ function App() {
       });
 
     if (!error) {
-      await fetchData();
+      setLiveEnrollments(prev => [{ user_id: newEnrollForm.user_id, course_id: newEnrollForm.course_id, enrolled_at: new Date().toISOString() }, ...prev]);
       setIsNewEnrollModalOpen(false);
       setNewEnrollForm({ user_id: '', course_id: '' });
       setEnrollStudentSearch('');
@@ -778,7 +780,7 @@ function App() {
           console.error("Error deleting course request:", reqError);
         }
       }
-      await fetchData();
+      setLiveEnrollments(prev => prev.filter(e => e.id !== enrollId));
     } else {
       alert("خطأ في إلغاء الاشتراك: " + error.message);
     }
@@ -805,7 +807,8 @@ function App() {
     if (reqError) {
       console.error("Error updating course request status:", reqError);
     }
-    await fetchData();
+    setLiveEnrollments(prev => [{ user_id: userId, course_id: courseId, enrolled_at: new Date().toISOString() }, ...prev]);
+    setLiveCourseRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'approved' } : r));
     setIsLoading(false);
     alert("تم قبول الطلب وتفعيل الكورس بنجاح!");
   };
@@ -820,7 +823,7 @@ function App() {
       .eq('id', requestId);
 
     if (!error) {
-      await fetchData();
+      setLiveCourseRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: 'rejected' } : r));
       alert("تم رفض الطلب بنجاح!");
     } else {
       alert("خطأ في رفض الطلب: " + error.message);
@@ -834,7 +837,7 @@ function App() {
     setIsLoading(true);
     const { error } = await supabase.from('complaints').delete().eq('id', complaintId);
     if (!error) {
-      await fetchData();
+      setLiveComplaints(prev => prev.filter(c => c.id !== complaintId));
       alert("تم حذف الشكوى بنجاح!");
     } else {
       alert("خطأ في حذف الشكوى: " + error.message);
@@ -863,7 +866,7 @@ function App() {
     } else {
       alert("تمت إضافة الامتحان بنجاح");
       setExamForm({ title: '', year_id: '', exam_url: '' });
-      await fetchData();
+      setAllExams(prev => [{ title: examForm.title, year_id: examForm.year_id, exam_url: examForm.exam_url, created_at: new Date().toISOString() }, ...prev]);
     }
     setIsLoading(false);
   };
@@ -878,7 +881,7 @@ function App() {
       alert("حدث خطأ أثناء حذف الامتحان: " + error.message);
     } else {
       alert("تم حذف الامتحان بنجاح");
-      await fetchData();
+      setAllExams(prev => prev.filter(e => e.id !== examId));
     }
     setIsLoading(false);
   };
@@ -893,7 +896,7 @@ function App() {
       alert("حدث خطأ أثناء حذف التسليم: " + error.message);
     } else {
       alert("تم حذف التسليم بنجاح");
-      await fetchData();
+      setAllExamSubmissions(prev => prev.filter(s => s.id !== submissionId));
     }
     setIsLoading(false);
   };
