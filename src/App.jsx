@@ -1,17 +1,17 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from './supabase';
-import { 
-  LayoutDashboard, 
-  BookOpen, 
-  Edit3, 
-  Users, 
-  CreditCard, 
-  BarChart3, 
-  TrendingUp, 
-  Plus, 
-  RefreshCw, 
-  GraduationCap, 
-  DollarSign, 
+import {
+  LayoutDashboard,
+  BookOpen,
+  Edit3,
+  Users,
+  CreditCard,
+  BarChart3,
+  TrendingUp,
+  Plus,
+  RefreshCw,
+  GraduationCap,
+  DollarSign,
   Sparkles,
   Search,
   BookOpenCheck,
@@ -37,18 +37,19 @@ import {
   Image,
   Upload,
   Copy,
-  ExternalLink
+  ExternalLink,
+  Key
 } from 'lucide-react';
 import './App.css';
 import EarlyWarningSystem from './components/EarlyWarningSystem';
 
 // --- WHATSAPP HELPER AND ICON ---
 const WhatsAppIcon = ({ size = 20, ...props }) => (
-  <svg 
-    viewBox="0 0 24 24" 
-    width={size} 
-    height={size} 
-    fill="currentColor" 
+  <svg
+    viewBox="0 0 24 24"
+    width={size}
+    height={size}
+    fill="currentColor"
     {...props}
   >
     <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.73-1.45L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436.002 9.858-4.417 9.86-9.86 0-2.637-1.025-5.114-2.887-6.978C16.578 1.902 14.1 .88 11.465.88c-5.44 0-9.862 4.418-9.865 9.861a9.814 9.814 0 0 0 1.488 5.122l-.98 3.58 3.673-.963zm10.518-6.195c-.3-.15-1.782-.88-2.05-.98-.268-.1-.463-.15-.658.15-.195.3-.755.95-.925 1.15-.17.2-.34.225-.64.075-.3-.15-1.266-.467-2.41-1.485-.89-.794-1.49-1.775-1.665-2.075-.175-.3-.018-.463.13-.61.134-.133.3-.348.45-.522.15-.175.2-.3.3-.5s.05-.375-.025-.525C8.26 8.478 7.64 6.97 7.38 6.345c-.253-.607-.51-.524-.658-.53-.14-.006-.3-.008-.46-.008-.16 0-.42.06-.64.3-.22.24-.84.82-.84 2 0 1.18.86 2.32.98 2.48.12.16 1.69 2.58 4.09 3.615.57.246 1.017.394 1.366.505.574.182 1.096.157 1.507.096.46-.067 1.782-.73 2.033-1.433.253-.703.253-1.305.178-1.43-.076-.127-.272-.2-.572-.35z" />
@@ -126,7 +127,7 @@ function App() {
       const d = new Date();
       d.setDate(now.getDate() - i * 3);
       const dateStr = d.toLocaleDateString('ar-EG', { day: 'numeric', month: 'short' });
-      
+
       const dayIntervalEnrollments = enrichedEnrollments.filter(e => {
         const eDate = new Date(e.enrolled_at);
         const diffTime = Math.abs(now - eDate);
@@ -138,13 +139,13 @@ function App() {
       chartPoints.push({ label: dateStr, value: rev });
     }
 
-    const finalChart = chartPoints.every(p => p.value === 0) 
+    const finalChart = chartPoints.every(p => p.value === 0)
       ? [
-          { label: '10 أيام مضت', value: 0 },
-          { label: '7 أيام مضت', value: totalRev * 0.3 },
-          { label: '4 أيام مضت', value: totalRev * 0.7 },
-          { label: 'اليوم', value: totalRev }
-        ]
+        { label: '10 أيام مضت', value: 0 },
+        { label: '7 أيام مضت', value: totalRev * 0.3 },
+        { label: '4 أيام مضت', value: totalRev * 0.7 },
+        { label: 'اليوم', value: totalRev }
+      ]
       : chartPoints;
 
     return {
@@ -230,7 +231,7 @@ function App() {
   const fetchData = useCallback(async () => {
     try {
       setIsLoading(true);
-      
+
       const [
         profilesRes,
         enrollmentsRes,
@@ -461,12 +462,12 @@ function App() {
     return liveComplaints.filter(complaint => {
       const student = liveStudents.find(s => s.id === complaint.user_id);
       const searchLower = complaintSearchTerm.toLowerCase();
-      
+
       const matchText = complaint.complaint_text?.toLowerCase().includes(searchLower) || false;
       const matchName = student?.full_name?.toLowerCase().includes(searchLower) || false;
       const matchEmail = student?.email?.toLowerCase().includes(searchLower) || false;
       const matchPhone = student?.phone?.toLowerCase().includes(searchLower) || false;
-      
+
       return matchText || matchName || matchEmail || matchPhone;
     });
   }, [liveComplaints, liveStudents, complaintSearchTerm]);
@@ -481,7 +482,7 @@ function App() {
     const courseLessons = getLessonsForCourse(courseId);
     if (courseLessons.length === 0) return 0;
 
-    const completedCount = courseLessons.filter(l => 
+    const completedCount = courseLessons.filter(l =>
       progressByStudentLessonMap.has(`${studentId}_${l.id}`)
     ).length;
 
@@ -507,7 +508,7 @@ function App() {
       .from('courses')
       .update({ is_published: !currentStatus })
       .eq('id', courseId);
-    
+
     if (!error) {
       setLiveCourses(prev => prev.map(c => c.id === courseId ? { ...c, is_published: !currentStatus } : c));
     } else {
@@ -518,7 +519,7 @@ function App() {
 
   const handleDeleteCourse = async (courseId) => {
     if (!confirm("هل أنت متأكد من حذف هذا الكورس نهائياً؟ سيتم حذف جميع المرفقات والاشتراكات والدروس التابعة له.")) return;
-    
+
     setIsLoading(true);
     const { data: lessons } = await supabase.from('lessons').select('id').eq('course_id', courseId);
     const lessonIds = lessons?.map(l => l.id) || [];
@@ -528,7 +529,7 @@ function App() {
     }
     await supabase.from('enrollments').delete().eq('course_id', courseId);
     await supabase.from('course_requests').delete().eq('course_id', courseId);
-    
+
     const { error } = await supabase.from('courses').delete().eq('id', courseId);
     if (!error) {
       setLiveCourses(prev => prev.filter(c => c.id !== courseId));
@@ -587,7 +588,8 @@ function App() {
 
     if (!error) {
       alert("تم تعديل الكورس بنجاح!");
-      setLiveCourses(prev => prev.map(c => c.id === editingCourseId ? { ...c, 
+      setLiveCourses(prev => prev.map(c => c.id === editingCourseId ? {
+        ...c,
         title: editorCourseForm.title,
         description: editorCourseForm.description,
         price: Number(editorCourseForm.price) || 0,
@@ -659,7 +661,7 @@ function App() {
 
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     const list = [...editorLessons];
-    
+
     const tempIndex = list[index].order_index;
     list[index].order_index = list[targetIndex].order_index;
     list[targetIndex].order_index = tempIndex;
@@ -851,7 +853,7 @@ function App() {
       alert("يرجى إكمال جميع الحقول");
       return;
     }
-    
+
     setIsLoading(true);
     const { error } = await supabase.from('exams').insert([
       {
@@ -860,7 +862,7 @@ function App() {
         exam_url: examForm.exam_url
       }
     ]);
-    
+
     if (error) {
       alert("حدث خطأ أثناء إضافة الامتحان: " + error.message);
     } else {
@@ -873,10 +875,10 @@ function App() {
 
   const handleDeleteExam = async (examId) => {
     if (!confirm("هل أنت متأكد من حذف هذا الامتحان؟")) return;
-    
+
     setIsLoading(true);
     const { error } = await supabase.from('exams').delete().eq('id', examId);
-    
+
     if (error) {
       alert("حدث خطأ أثناء حذف الامتحان: " + error.message);
     } else {
@@ -886,12 +888,28 @@ function App() {
     setIsLoading(false);
   };
 
+  const handleUpdatePassword = async (userId, newPassword) => {
+    setIsLoading(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ password: newPassword })
+      .eq('id', userId);
+      
+    if (error) {
+      alert("حدث خطأ أثناء تحديث كلمة المرور: " + error.message);
+    } else {
+      setLiveStudents(prev => prev.map(s => s.id === userId ? { ...s, password: newPassword } : s));
+      alert("تم تحديث كلمة المرور بنجاح");
+    }
+    setIsLoading(false);
+  };
+
   const handleDeleteSubmission = async (submissionId) => {
     if (!confirm("هل أنت متأكد من حذف هذا التسليم؟ سيتيح ذلك للطالب إعادة تسليم الامتحان.")) return;
-    
+
     setIsLoading(true);
     const { error } = await supabase.from('exam_submissions').delete().eq('id', submissionId);
-    
+
     if (error) {
       alert("حدث خطأ أثناء حذف التسليم: " + error.message);
     } else {
@@ -955,7 +973,7 @@ function App() {
   const handleUploadFile = async (e) => {
     const files = e.target.files || (e.dataTransfer && e.dataTransfer.files);
     if (!files || files.length === 0) return;
-    
+
     const file = files[0];
 
     // For course-images bucket, only allow images
@@ -975,7 +993,7 @@ function App() {
     try {
       const fileExt = file.name.split('.').pop();
       const uniqueFileName = `${Date.now()}_${Math.random().toString(36).substring(2, 11)}.${fileExt}`;
-      
+
       const { data, error } = await supabase.storage
         .from(mediaBucket)
         .upload(uniqueFileName, file, {
@@ -1057,11 +1075,11 @@ function App() {
 
   // --- FILTERS: STUDENTS ---
   const filteredStudents = currentStudents.filter(student => {
-    const matchesSearch = 
+    const matchesSearch =
       (student.full_name && student.full_name.toLowerCase().includes(studentSearchTerm.toLowerCase())) ||
       (student.email && student.email.toLowerCase().includes(studentSearchTerm.toLowerCase())) ||
       (student.phone && student.phone.includes(studentSearchTerm));
-    
+
     const matchesGrade = studentGradeFilter === 'all' || student.current_year_id === studentGradeFilter;
     return matchesSearch && matchesGrade;
   });
@@ -1073,14 +1091,14 @@ function App() {
     return { ...e, student, course };
   }).filter(e => {
     if (!e.student || !e.course) return false;
-    const matchesSearch = 
-      e.student.full_name.toLowerCase().includes(enrollmentSearchTerm.toLowerCase()) || 
+    const matchesSearch =
+      e.student.full_name.toLowerCase().includes(enrollmentSearchTerm.toLowerCase()) ||
       e.student.email.toLowerCase().includes(enrollmentSearchTerm.toLowerCase());
     const matchesCourse = enrollmentCourseFilter === 'all' || e.course_id === enrollmentCourseFilter;
     return matchesSearch && matchesCourse;
   });
 
-  const filteredStudentsForEnroll = currentStudents.filter(s => 
+  const filteredStudentsForEnroll = currentStudents.filter(s =>
     s.full_name.toLowerCase().includes(enrollStudentSearch.toLowerCase()) ||
     s.email.toLowerCase().includes(enrollStudentSearch.toLowerCase())
   );
@@ -1127,7 +1145,7 @@ function App() {
 
   const filteredCourses = currentCourses.filter(course => {
     const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (course.description && course.description.toLowerCase().includes(searchTerm.toLowerCase()));
+      (course.description && course.description.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesGrade = gradeFilter === 'all' || course.year_id === gradeFilter;
     return matchesSearch && matchesGrade;
   });
@@ -1160,7 +1178,7 @@ function App() {
       return index === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`;
     }, '');
 
-    const areaPath = points.length > 0 
+    const areaPath = points.length > 0
       ? `${linePath} L ${points[points.length - 1].x} ${svgHeight - paddingBottom} L ${points[0].x} ${svgHeight - paddingBottom} Z`
       : '';
 
@@ -1174,7 +1192,7 @@ function App() {
     const container = e.currentTarget.parentNode.getBoundingClientRect();
     const tooltipX = rect.left - container.left + rect.width / 2;
     const tooltipY = rect.top - container.top;
-    
+
     setTooltipPos({ x: tooltipX, y: tooltipY });
     setHoveredChartPoint(point);
   };
@@ -1209,7 +1227,7 @@ function App() {
         <nav>
           <ul className="sidebar-menu">
             <li>
-              <button 
+              <button
                 className={`menu-item-btn ${activeTab === 'overview' ? 'active' : ''}`}
                 onClick={() => {
                   setActiveTab('overview');
@@ -1220,21 +1238,8 @@ function App() {
                 <span>الرئيسية / الإحصاءات</span>
               </button>
             </li>
-            <li>
-              <button 
-                className={`menu-item-btn ${activeTab === 'courses' ? 'active' : ''}`}
-                onClick={() => {
-                  setActiveTab('courses');
-                  setEditingCourseId(null);
-                }}
-              >
-                <BookOpen />
-                <span>إدارة الكورسات</span>
-              </button>
-            </li>
-
-            <li>
-              <button 
+              <li>
+              <button
                 className={`menu-item-btn ${activeTab === 'students' ? 'active' : ''}`}
                 onClick={() => {
                   setActiveTab('students');
@@ -1246,7 +1251,44 @@ function App() {
               </button>
             </li>
             <li>
-              <button 
+              <button
+                className={`menu-item-btn ${activeTab === 'users' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('users');
+                  setEditingCourseId(null);
+                }}
+              >
+                <Users />
+                <span>إدارة المستخدمين</span>
+              </button>
+            </li>
+            <li>
+              <button
+                className={`menu-item-btn ${activeTab === 'courses' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('courses');
+                  setEditingCourseId(null);
+                }}
+              >
+                <BookOpen />
+                <span>إدارة الكورسات</span>
+              </button>
+            </li>
+            <li>
+              <button
+                className={`menu-item-btn ${activeTab === 'exams' ? 'active' : ''}`}
+                onClick={() => {
+                  setActiveTab('exams');
+                  setEditingCourseId(null);
+                }}
+              >
+                <FileText />
+                <span>إدارة الامتحانات</span>
+              </button>
+            </li>
+          
+            <li>
+              <button
                 className={`menu-item-btn ${activeTab === 'enrollments' ? 'active' : ''}`}
                 onClick={() => {
                   setActiveTab('enrollments');
@@ -1274,7 +1316,7 @@ function App() {
               </button>
             </li>
             <li>
-              <button 
+              <button
                 className={`menu-item-btn ${activeTab === 'analytics' ? 'active' : ''}`}
                 onClick={() => {
                   setActiveTab('analytics');
@@ -1286,7 +1328,7 @@ function App() {
               </button>
             </li>
             <li>
-              <button 
+              <button
                 className={`menu-item-btn ${activeTab === 'warnings' ? 'active' : ''}`}
                 onClick={() => {
                   setActiveTab('warnings');
@@ -1298,7 +1340,7 @@ function App() {
               </button>
             </li>
             <li>
-              <button 
+              <button
                 className={`menu-item-btn ${activeTab === 'complaints' ? 'active' : ''}`}
                 onClick={() => {
                   setActiveTab('complaints');
@@ -1326,7 +1368,7 @@ function App() {
               </button>
             </li>
             <li>
-              <button 
+              <button
                 className={`menu-item-btn ${activeTab === 'media' ? 'active' : ''}`}
                 onClick={() => {
                   setActiveTab('media');
@@ -1337,18 +1379,7 @@ function App() {
                 <span>مكتبة الوسائط</span>
               </button>
             </li>
-            <li>
-              <button 
-                className={`menu-item-btn ${activeTab === 'exams' ? 'active' : ''}`}
-                onClick={() => {
-                  setActiveTab('exams');
-                  setEditingCourseId(null);
-                }}
-              >
-                <FileText />
-                <span>إدارة الامتحانات</span>
-              </button>
-            </li>
+
           </ul>
         </nav>
 
@@ -1378,6 +1409,7 @@ function App() {
                   {activeTab === 'courses' && 'إدارة الكورسات والمناهج'}
                   {activeTab === 'editor' && 'محرر المنهج والدروس'}
                   {activeTab === 'students' && 'حسابات الطلاب المسجلين'}
+                  {activeTab === 'users' && 'بيانات وكلمات مرور المستخدمين'}
                   {activeTab === 'enrollments' && 'إدارة الاشتراكات اليدوية'}
                   {activeTab === 'analytics' && 'تحليلات الأداء والمبيعات'}
                   {activeTab === 'warnings' && 'نظام الإنذار المبكر'}
@@ -1390,6 +1422,7 @@ function App() {
                   {activeTab === 'courses' && 'عرض، تعديل، ونشر الفصول الدراسية والكورسات التعليمية لمختلف الصفوف.'}
                   {activeTab === 'editor' && 'اختر كورس من قائمة الكورسات لبدء تحرير المحاضرات وإعادة ترتيبها.'}
                   {activeTab === 'students' && 'متابعة بيانات الطلاب ونسب تقدمهم الدراسي وتتبع إتمام الدروس والمشاهدات.'}
+                  {activeTab === 'users' && 'عرض وتعديل كلمات المرور الخاصة بالمستخدمين.'}
                   {activeTab === 'enrollments' && 'إضافة أو حذف الاشتراكات اليدوية للطلاب بالكورسات المدفوعة.'}
                   {activeTab === 'analytics' && 'رؤى بيانية مفصلة حول إتمام الدروس ونسب التساقط وشعبية الكورسات.'}
                   {activeTab === 'warnings' && 'تتبع تلقائي للطلاب المعرضين للتعثر أو الانقطاع الدراسي واتخاذ الإجراءات الوقائية.'}
@@ -1487,7 +1520,7 @@ function App() {
                   </div>
                   <TrendingUp style={{ color: 'var(--accent-gold)' }} />
                 </div>
-                
+
                 <div className="chart-container">
                   {stats.chartData && stats.chartData.length > 0 ? (
                     <svg className="chart-svg" viewBox="0 0 500 200" preserveAspectRatio="none">
@@ -1539,11 +1572,11 @@ function App() {
                   )}
 
                   {hoveredChartPoint && (
-                    <div 
-                      className="chart-tooltip" 
-                      style={{ 
-                        left: `${tooltipPos.x}px`, 
-                        top: `${tooltipPos.y}px` 
+                    <div
+                      className="chart-tooltip"
+                      style={{
+                        left: `${tooltipPos.x}px`,
+                        top: `${tooltipPos.y}px`
                       }}
                     >
                       <span className="chart-tooltip-date">{hoveredChartPoint.label}</span>
@@ -1639,13 +1672,13 @@ function App() {
             {/* Table Filters & Toolbar */}
             <div className="content-card" style={{ padding: '20px', marginBottom: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
-                
+
                 {/* Search and Grade Filter */}
                 <div style={{ display: 'flex', gap: '12px', flex: 1, minWidth: '300px' }}>
                   <div style={{ position: 'relative', flex: 1 }}>
-                    <input 
-                      type="text" 
-                      placeholder="البحث عن كورس..." 
+                    <input
+                      type="text"
+                      placeholder="البحث عن كورس..."
                       className="form-input"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
@@ -1653,8 +1686,8 @@ function App() {
                     />
                     <Search size={18} style={{ position: 'absolute', right: '12px', top: '14px', color: 'var(--text-muted)' }} />
                   </div>
-                  
-                  <select 
+
+                  <select
                     className="form-select"
                     value={gradeFilter}
                     onChange={(e) => setGradeFilter(e.target.value)}
@@ -1668,7 +1701,7 @@ function App() {
                 </div>
 
                 {/* Add New Course Button */}
-                <button 
+                <button
                   className="btn btn-primary"
                   onClick={() => setIsNewCourseModalOpen(true)}
                 >
@@ -1695,16 +1728,16 @@ function App() {
                   <tbody>
                     {filteredCourses.map((course) => (
                       <tr key={course.id}>
-                        <td 
-                          onClick={() => setEditingCourseId(course.id)} 
+                        <td
+                          onClick={() => setEditingCourseId(course.id)}
                           style={{ cursor: 'pointer' }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             {course.thumbnail_url ? (
-                              <img 
-                                src={course.thumbnail_url} 
-                                alt={course.title} 
-                                style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover', backgroundColor: 'rgba(255,255,255,0.05)' }} 
+                              <img
+                                src={course.thumbnail_url}
+                                alt={course.title}
+                                style={{ width: '48px', height: '48px', borderRadius: '8px', objectFit: 'cover', backgroundColor: 'rgba(255,255,255,0.05)' }}
                               />
                             ) : (
                               <div style={{ width: '48px', height: '48px', borderRadius: '8px', backgroundColor: 'rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1751,7 +1784,7 @@ function App() {
 
                         <td>
                           <div className="actions-cell">
-                            <button 
+                            <button
                               className="action-btn"
                               onClick={() => handleTogglePublish(course.id, course.is_published)}
                               title={course.is_published ? "إلغاء النشر" : "تفعيل النشر للطلاب"}
@@ -1759,7 +1792,7 @@ function App() {
                               {course.is_published ? <EyeOff size={18} /> : <Eye size={18} />}
                             </button>
 
-                            <button 
+                            <button
                               className="action-btn edit-btn"
                               onClick={() => setEditingCourseId(course.id)}
                               title="تعديل الدروس والتفاصيل"
@@ -1767,7 +1800,7 @@ function App() {
                               <Edit size={18} />
                             </button>
 
-                            <button 
+                            <button
                               className="action-btn delete-btn"
                               onClick={() => handleDeleteCourse(course.id)}
                               title="حذف الكورس نهائياً"
@@ -1800,7 +1833,7 @@ function App() {
                 <p style={{ color: 'var(--text-secondary)', marginBottom: '24px' }}>
                   يرجى الانتقال لصفحة "إدارة الكورسات" واختيار الكورس الذي ترغب في تحريره وإضافة حصص له.
                 </p>
-                <button 
+                <button
                   className="btn btn-primary"
                   onClick={() => setActiveTab('courses')}
                 >
@@ -1813,7 +1846,7 @@ function App() {
                 <div className="editor-card">
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', paddingBottom: '16px' }}>
                     <h3 className="card-title">تفاصيل وبيانات الكورس</h3>
-                    <button 
+                    <button
                       className="btn btn-secondary btn-sm"
                       onClick={() => {
                         setEditingCourseId(null);
@@ -1827,9 +1860,9 @@ function App() {
                   <form onSubmit={handleUpdateCourseDetails} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div className="form-group">
                       <label className="form-label">عنوان الكورس التعليمي</label>
-                      <input 
-                        type="text" 
-                        className="form-input" 
+                      <input
+                        type="text"
+                        className="form-input"
                         required
                         value={editorCourseForm.title}
                         onChange={(e) => setEditorCourseForm(prev => ({ ...prev, title: e.target.value }))}
@@ -1838,7 +1871,7 @@ function App() {
 
                     <div className="form-group">
                       <label className="form-label">الصف الدراسي المستهدف</label>
-                      <select 
+                      <select
                         className="form-select"
                         value={editorCourseForm.year_id}
                         onChange={(e) => setEditorCourseForm(prev => ({ ...prev, year_id: e.target.value }))}
@@ -1851,9 +1884,9 @@ function App() {
 
                     <div className="form-group">
                       <label className="form-label">سعر الكورس (EGP - ضع 0 للمجاني)</label>
-                      <input 
-                        type="number" 
-                        className="form-input" 
+                      <input
+                        type="number"
+                        className="form-input"
                         min="0"
                         value={editorCourseForm.price}
                         onChange={(e) => setEditorCourseForm(prev => ({ ...prev, price: Number(e.target.value) }))}
@@ -1862,9 +1895,9 @@ function App() {
 
                     <div className="form-group" style={{ position: 'relative' }}>
                       <label className="form-label">الصورة المصغرة للكورس (Thumbnail)</label>
-                      
+
                       {/* Selected thumbnail preview */}
-                      <div 
+                      <div
                         onClick={() => setThumbnailDropdownOpen(!thumbnailDropdownOpen)}
                         style={{
                           display: 'flex',
@@ -1881,9 +1914,9 @@ function App() {
                       >
                         {editorCourseForm.thumbnail_url ? (
                           <>
-                            <img 
-                              src={editorCourseForm.thumbnail_url} 
-                              alt="thumbnail" 
+                            <img
+                              src={editorCourseForm.thumbnail_url}
+                              alt="thumbnail"
                               style={{ width: '44px', height: '44px', borderRadius: '6px', objectFit: 'cover', border: '1px solid var(--border-color)' }}
                             />
                             <div style={{ flex: 1, minWidth: 0 }}>
@@ -1971,8 +2004,8 @@ function App() {
                                   }}
                                   title={img.name}
                                 >
-                                  <img 
-                                    src={img.url} 
+                                  <img
+                                    src={img.url}
                                     alt={img.name}
                                     style={{ width: '100%', height: '72px', objectFit: 'cover', display: 'block' }}
                                   />
@@ -2007,7 +2040,7 @@ function App() {
 
                     <div className="form-group">
                       <label className="form-label">وصف الكورس والشروحات المشمولة</label>
-                      <textarea 
+                      <textarea
                         className="form-textarea"
                         value={editorCourseForm.description}
                         onChange={(e) => setEditorCourseForm(prev => ({ ...prev, description: e.target.value }))}
@@ -2017,7 +2050,7 @@ function App() {
                     <div className="form-group" style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', padding: '12px', borderRadius: '10px', marginTop: '8px' }}>
                       <span className="form-label" style={{ margin: 0 }}>نشر الكورس للطلاب فوراً</span>
                       <label className="toggle-switch">
-                        <input 
+                        <input
                           type="checkbox"
                           checked={editorCourseForm.is_published}
                           onChange={(e) => setEditorCourseForm(prev => ({ ...prev, is_published: e.target.checked }))}
@@ -2039,7 +2072,7 @@ function App() {
                       <h3 className="card-title">دروس ومحاضرات المنهج</h3>
                       <span className="card-subtitle">ترتيب الحصص وربط الفيديوهات لكل درس</span>
                     </div>
-                    <button 
+                    <button
                       className="btn btn-primary btn-sm"
                       onClick={handleAddLesson}
                     >
@@ -2054,14 +2087,14 @@ function App() {
                         <div key={lesson.id} style={{ display: 'flex', flexDirection: 'column' }}>
                           <div className="lesson-card-item">
                             <div className="lesson-drag-controls">
-                              <button 
+                              <button
                                 className="lesson-drag-arrow"
                                 onClick={() => handleMoveLesson(idx, 'up')}
                                 disabled={idx === 0}
                               >
                                 <ChevronUp size={16} />
                               </button>
-                              <button 
+                              <button
                                 className="lesson-drag-arrow"
                                 onClick={() => handleMoveLesson(idx, 'down')}
                                 disabled={idx === editorLessons.length - 1}
@@ -2102,7 +2135,7 @@ function App() {
                             </div>
 
                             <div className="lesson-actions-area">
-                              <button 
+                              <button
                                 className="action-btn edit-btn"
                                 onClick={() => {
                                   if (activeLessonEditId === lesson.id) {
@@ -2114,7 +2147,7 @@ function App() {
                               >
                                 <Edit size={16} />
                               </button>
-                              <button 
+                              <button
                                 className="action-btn delete-btn"
                                 onClick={() => handleDeleteLesson(lesson.id)}
                               >
@@ -2127,9 +2160,9 @@ function App() {
                             <div className="lesson-editor-form">
                               <div className="form-group">
                                 <label className="form-label">عنوان الدرس / المحاضرة</label>
-                                <input 
-                                  type="text" 
-                                  className="form-input" 
+                                <input
+                                  type="text"
+                                  className="form-input"
                                   value={lessonEditForm.title}
                                   onChange={(e) => setLessonEditForm(prev => ({ ...prev, title: e.target.value }))}
                                 />
@@ -2137,9 +2170,9 @@ function App() {
 
                               <div className="form-group">
                                 <label className="form-label">رابط الفيديو (Vimeo / YouTube)</label>
-                                <input 
-                                  type="text" 
-                                  className="form-input" 
+                                <input
+                                  type="text"
+                                  className="form-input"
                                   placeholder="رابط الفيديو..."
                                   value={lessonEditForm.video_url}
                                   onChange={(e) => setLessonEditForm(prev => ({ ...prev, video_url: e.target.value }))}
@@ -2148,7 +2181,7 @@ function App() {
 
                               <div className="form-group">
                                 <label className="form-label">شرح ملخص / محتوى الدرس النصي</label>
-                                <textarea 
+                                <textarea
                                   className="form-textarea"
                                   placeholder="تفاصيل الدرس..."
                                   value={lessonEditForm.content}
@@ -2240,7 +2273,7 @@ function App() {
                                       {attachmentFilesList.map(file => {
                                         const isSelected = (lessonEditForm.attachment_urls || []).includes(file.url);
                                         const ext = file.name?.split('.').pop()?.toLowerCase();
-                                        const isImg = ['jpg','jpeg','png','gif','webp','svg','bmp'].includes(ext);
+                                        const isImg = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext);
                                         return (
                                           <div
                                             key={file.id || file.name}
@@ -2311,13 +2344,13 @@ function App() {
                               </div>
 
                               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '4px' }}>
-                                <button 
+                                <button
                                   className="btn btn-secondary btn-sm"
                                   onClick={() => setActiveLessonEditId(null)}
                                 >
                                   إلغاء
                                 </button>
-                                <button 
+                                <button
                                   className="btn btn-primary btn-sm"
                                   onClick={() => handleSaveLessonEdit(lesson.id)}
                                 >
@@ -2347,9 +2380,9 @@ function App() {
             <div className="content-card" style={{ padding: '20px', marginBottom: '24px' }}>
               <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                 <div style={{ position: 'relative', flex: 1, minWidth: '250px' }}>
-                  <input 
-                    type="text" 
-                    placeholder="البحث عن طالب بالاسم، الإيميل، أو الهاتف..." 
+                  <input
+                    type="text"
+                    placeholder="البحث عن طالب بالاسم، الإيميل، أو الهاتف..."
                     className="form-input"
                     value={studentSearchTerm}
                     onChange={(e) => setStudentSearchTerm(e.target.value)}
@@ -2357,8 +2390,8 @@ function App() {
                   />
                   <Search size={18} style={{ position: 'absolute', right: '12px', top: '14px', color: 'var(--text-muted)' }} />
                 </div>
-                
-                <select 
+
+                <select
                   className="form-select"
                   value={studentGradeFilter}
                   onChange={(e) => setStudentGradeFilter(e.target.value)}
@@ -2404,9 +2437,9 @@ function App() {
                           {student.phone ? (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                               <span>{student.phone}</span>
-                              <a 
+                              <a
                                 href={getWhatsAppUrl(student.phone)}
-                                target="_blank" 
+                                target="_blank"
                                 rel="noopener noreferrer"
                                 className="whatsapp-icon-btn"
                                 title="تواصل عبر واتساب"
@@ -2426,7 +2459,7 @@ function App() {
                         <td>{new Date(student.created_at).toLocaleDateString('ar-EG')}</td>
                         <td>
                           <div style={{ display: 'flex', gap: '8px' }}>
-                            <button 
+                            <button
                               className="btn btn-secondary btn-sm"
                               onClick={() => {
                                 setSelectedStudentId(student.id);
@@ -2437,9 +2470,9 @@ function App() {
                               <span>عرض التقدم</span>
                             </button>
                             {student.phone && (
-                              <a 
+                              <a
                                 href={getWhatsAppUrl(student.phone)}
-                                target="_blank" 
+                                target="_blank"
                                 rel="noopener noreferrer"
                                 className="btn btn-whatsapp btn-sm"
                                 title="تواصل عبر واتساب مباشرة"
@@ -2485,7 +2518,7 @@ function App() {
                       طلبات تفعيل الكورسات المعلقة ({enrichedRequests.length})
                     </h3>
                   </div>
-                  
+
                   <div className="table-container" style={{ marginTop: 0 }}>
                     <table className="dashboard-table">
                       <thead>
@@ -2518,14 +2551,14 @@ function App() {
                             </td>
                             <td>
                               <div style={{ display: 'flex', gap: '8px' }}>
-                                <button 
+                                <button
                                   className="btn btn-sm"
                                   onClick={() => handleApproveRequest(req.id, req.user_id, req.course_id)}
                                   style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10B981' }}
                                 >
                                   <span>موافقة وتفعيل</span>
                                 </button>
-                                <button 
+                                <button
                                   className="btn btn-danger btn-sm"
                                   onClick={() => handleRejectRequest(req.id)}
                                 >
@@ -2544,12 +2577,12 @@ function App() {
 
             <div className="content-card" style={{ padding: '20px', marginBottom: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', alignItems: 'center' }}>
-                
+
                 <div style={{ display: 'flex', gap: '12px', flex: 1, minWidth: '300px' }}>
                   <div style={{ position: 'relative', flex: 1 }}>
-                    <input 
-                      type="text" 
-                      placeholder="البحث باسم الطالب..." 
+                    <input
+                      type="text"
+                      placeholder="البحث باسم الطالب..."
                       className="form-input"
                       value={enrollmentSearchTerm}
                       onChange={(e) => setEnrollmentSearchTerm(e.target.value)}
@@ -2557,8 +2590,8 @@ function App() {
                     />
                     <Search size={18} style={{ position: 'absolute', right: '12px', top: '14px', color: 'var(--text-muted)' }} />
                   </div>
-                  
-                  <select 
+
+                  <select
                     className="form-select"
                     value={enrollmentCourseFilter}
                     onChange={(e) => setEnrollmentCourseFilter(e.target.value)}
@@ -2571,7 +2604,7 @@ function App() {
                   </select>
                 </div>
 
-                <button 
+                <button
                   className="btn btn-primary"
                   onClick={() => {
                     setIsNewEnrollModalOpen(true);
@@ -2614,7 +2647,7 @@ function App() {
                         <td>{getYearTitle(enroll.course?.year_id)}</td>
                         <td>{new Date(enroll.enrolled_at).toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' })}</td>
                         <td>
-                          <button 
+                          <button
                             className="btn btn-danger btn-sm"
                             onClick={() => handleRevokeEnrollment(enroll.id)}
                             style={{ display: 'inline-flex', gap: '6px' }}
@@ -2651,7 +2684,7 @@ function App() {
                   </div>
                   <Layers style={{ color: 'var(--accent-gold)' }} />
                 </div>
-                
+
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   {getAnalyticsPopularCourses().map(item => {
                     const maxEnroll = Math.max(...getAnalyticsPopularCourses().map(i => i.enrollments), 1);
@@ -2663,7 +2696,7 @@ function App() {
                           <span style={{ color: 'var(--accent-gold)' }}>{item.enrollments} طالب</span>
                         </div>
                         <div className="chart-bar-horizontal-track">
-                          <div 
+                          <div
                             className="chart-bar-horizontal-fill"
                             style={{ width: `${pct}%` }}
                           ></div>
@@ -2692,7 +2725,7 @@ function App() {
                         <span style={{ color: 'var(--accent-emerald)' }}>{item.rate}% إتمام</span>
                       </div>
                       <div className="chart-bar-horizontal-track">
-                        <div 
+                        <div
                           className="chart-bar-horizontal-fill emerald"
                           style={{ width: `${item.rate}%` }}
                         ></div>
@@ -2710,8 +2743,8 @@ function App() {
                   <h3 className="card-title">تتبع نقاط التسرب وعزوف الطلاب (Drop-off Points)</h3>
                   <span className="card-subtitle">عدد الطلاب الذين أكملوا كل محاضرة على حدة لملاحظة نقاط العزوف</span>
                 </div>
-                
-                <select 
+
+                <select
                   className="form-select"
                   value={currentAnalyticsCourseId}
                   onChange={(e) => setAnalyticsSelectedCourseId(e.target.value)}
@@ -2731,7 +2764,7 @@ function App() {
                       const barHeight = (lesson.completedCount / maxCompleted) * 120 + 20; // range 20px - 140px
                       return (
                         <div key={lesson.lessonId} className="dropoff-bar-wrapper">
-                          <div 
+                          <div
                             className="dropoff-bar-column"
                             style={{ height: `${barHeight}px` }}
                           >
@@ -2761,7 +2794,7 @@ function App() {
 
         {/* --- PAGE 7: WARNINGS --- */}
         {activeTab === 'warnings' && (
-          <EarlyWarningSystem 
+          <EarlyWarningSystem
             onViewProfile={(studentId) => {
               if (typeof studentId === 'string') {
                 setSelectedStudentId(studentId);
@@ -2785,9 +2818,9 @@ function App() {
             }}>
               <div className="search-bar" style={{ flex: 1, maxWidth: '450px', marginBottom: 0 }}>
                 <Search size={18} />
-                <input 
-                  type="text" 
-                  placeholder="البحث باسم الطالب، البريد الإلكتروني، أو محتوى الشكوى..." 
+                <input
+                  type="text"
+                  placeholder="البحث باسم الطالب، البريد الإلكتروني، أو محتوى الشكوى..."
                   value={complaintSearchTerm}
                   onChange={(e) => setComplaintSearchTerm(e.target.value)}
                   style={{
@@ -2843,9 +2876,9 @@ function App() {
                 {filteredComplaints.map((complaint) => {
                   const student = liveStudents.find(s => s.id === complaint.user_id);
                   return (
-                    <div 
-                      key={complaint.id} 
-                      className="dashboard-card" 
+                    <div
+                      key={complaint.id}
+                      className="dashboard-card"
                       style={{
                         padding: '20px',
                         display: 'flex',
@@ -2901,7 +2934,7 @@ function App() {
                         </div>
 
                         {/* Complaint Content */}
-                        <div 
+                        <div
                           style={{
                             fontSize: '13px',
                             color: 'var(--text-main)',
@@ -2947,7 +2980,7 @@ function App() {
 
                         <div style={{ display: 'flex', gap: '8px' }}>
                           {student?.phone && (
-                            <a 
+                            <a
                               href={`${getWhatsAppUrl(student.phone)}?text=${encodeURIComponent('تم حل مشكلتك تقدر تشوف حسابك الان')}`}
                               target="_blank"
                               rel="noopener noreferrer"
@@ -2963,7 +2996,7 @@ function App() {
                               <span>تواصل</span>
                             </a>
                           )}
-                          <button 
+                          <button
                             onClick={() => {
                               setSelectedComplaint(complaint);
                               setIsComplaintModalOpen(true);
@@ -2974,7 +3007,7 @@ function App() {
                             <Eye size={12} />
                             <span>عرض</span>
                           </button>
-                          <button 
+                          <button
                             onClick={() => handleDeleteComplaint(complaint.id)}
                             className="btn btn-danger btn-sm"
                             style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
@@ -3076,7 +3109,7 @@ function App() {
                     </div>
                     <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                       {student?.phone && (
-                        <a 
+                        <a
                           href={`${getWhatsAppUrl(student.phone)}?text=${encodeURIComponent('تم حل مشكلتك تقدر تشوف حسابك الان')}`}
                           target="_blank"
                           rel="noopener noreferrer"
@@ -3092,7 +3125,7 @@ function App() {
                           <span>تواصل عبر الواتساب</span>
                         </a>
                       )}
-                      <button 
+                      <button
                         onClick={() => {
                           handleDeleteComplaint(selectedComplaint.id);
                           setIsComplaintModalOpen(false);
@@ -3116,9 +3149,9 @@ function App() {
 
         {/* --- PAGE 9: MEDIA --- */}
         {activeTab === 'media' && (
-          <div 
-            className="tab-pane active animate-fade-in" 
-            style={{ 
+          <div
+            className="tab-pane active animate-fade-in"
+            style={{
               direction: 'rtl',
               position: 'relative',
               minHeight: '450px'
@@ -3225,7 +3258,7 @@ function App() {
                 <AlertTriangle size={54} style={{ color: '#EF4444', marginBottom: '20px' }} />
                 <h3 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '12px', color: 'var(--text-main)' }}>حاوية التخزين (Storage Bucket) غير موجودة</h3>
                 <p style={{ fontSize: '14px', color: 'var(--text-muted)', lineHeight: '1.6', marginBottom: '24px' }}>
-                  لم يتم العثور على حاوية تخزين باسم <strong style={{ color: 'var(--primary)', direction: 'ltr', display: 'inline-block' }}>'media'</strong> في حساب Supabase الخاص بك. 
+                  لم يتم العثور على حاوية تخزين باسم <strong style={{ color: 'var(--primary)', direction: 'ltr', display: 'inline-block' }}>'media'</strong> في حساب Supabase الخاص بك.
                   لتتمكن من رفع الصور وعرضها، يرجى القيام بإنشائها عبر الخطوات التالية:
                 </p>
                 <div style={{ textAlign: 'right', fontSize: '13px', backgroundColor: 'var(--bg-app)', padding: '20px', borderRadius: '8px', marginBottom: '24px', lineHeight: '2.0', border: '1px solid var(--border-color)' }}>
@@ -3237,9 +3270,9 @@ function App() {
                     <li>اذهب لتبويب <strong>Policies</strong> في الـ Storage وقم بإضافة سياسة RLS تمنح صلاحيات القراءة والرفع والحذف للمستخدمين.</li>
                   </ol>
                 </div>
-                <button 
-                  onClick={() => fetchMedia('media')} 
-                  className="btn btn-primary" 
+                <button
+                  onClick={() => fetchMedia('media')}
+                  className="btn btn-primary"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 20px', borderRadius: '6px' }}
                 >
                   <RefreshCw size={16} />
@@ -3270,8 +3303,8 @@ function App() {
                   {/* Search Bar */}
                   <div className="search-bar" style={{ flex: 1, maxWidth: '400px', marginBottom: 0 }}>
                     <Search size={18} />
-                    <input 
-                      type="text" 
+                    <input
+                      type="text"
                       placeholder={isAttachmentBucket ? 'البحث باسم المرفق...' : 'البحث باسم الصورة...'}
                       value={mediaSearchTerm}
                       onChange={(e) => setMediaSearchTerm(e.target.value)}
@@ -3307,12 +3340,12 @@ function App() {
                     </div>
 
                     {/* Upload Button */}
-                    <label 
-                      className="btn btn-primary" 
-                      style={{ 
-                        display: 'inline-flex', 
-                        alignItems: 'center', 
-                        gap: '8px', 
+                    <label
+                      className="btn btn-primary"
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
                         cursor: 'pointer',
                         padding: '9px 18px',
                         borderRadius: '8px',
@@ -3322,18 +3355,18 @@ function App() {
                     >
                       {mediaUploadLoading ? <RefreshCw size={16} className="animate-spin" /> : <Upload size={16} />}
                       <span>{mediaUploadLoading ? 'جاري الرفع...' : (isAttachmentBucket ? 'رفع مرفق جديد' : 'رفع صورة جديدة')}</span>
-                      <input 
-                        type="file" 
+                      <input
+                        type="file"
                         accept={isAttachmentBucket ? '*/*' : 'image/*'}
-                        onChange={handleUploadFile} 
-                        style={{ display: 'none' }} 
+                        onChange={handleUploadFile}
+                        style={{ display: 'none' }}
                         disabled={mediaUploadLoading}
                       />
                     </label>
 
-                    <button 
-                      onClick={() => fetchMedia()} 
-                      className="btn btn-secondary" 
+                    <button
+                      onClick={() => fetchMedia()}
+                      className="btn btn-secondary"
                       style={{ padding: '9px', borderRadius: '8px' }}
                       title="تحديث القائمة"
                     >
@@ -3357,9 +3390,9 @@ function App() {
                     gap: '20px'
                   }}>
                     {filteredMediaFiles.map((file) => (
-                      <div 
-                        key={file.id} 
-                        className="dashboard-card" 
+                      <div
+                        key={file.id}
+                        className="dashboard-card"
                         style={{
                           padding: '12px',
                           display: 'flex',
@@ -3396,9 +3429,9 @@ function App() {
                           border: '1px solid var(--border-color)'
                         }}>
                           {isImageFile(file.name) ? (
-                            <img 
-                              src={file.url} 
-                              alt={file.name} 
+                            <img
+                              src={file.url}
+                              alt={file.name}
                               style={{
                                 maxWidth: '100%',
                                 maxHeight: '100%',
@@ -3433,13 +3466,13 @@ function App() {
 
                         {/* Image Meta Info */}
                         <div style={{ flex: 1, minWidth: 0, marginBottom: '12px' }}>
-                          <div 
-                            style={{ 
-                              fontSize: '13px', 
-                              fontWeight: '600', 
-                              color: 'var(--text-main)', 
-                              overflow: 'hidden', 
-                              textOverflow: 'ellipsis', 
+                          <div
+                            style={{
+                              fontSize: '13px',
+                              fontWeight: '600',
+                              color: 'var(--text-main)',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
                               whiteSpace: 'nowrap',
                               direction: 'ltr',
                               textAlign: 'right'
@@ -3448,10 +3481,10 @@ function App() {
                           >
                             {file.name}
                           </div>
-                          <div style={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
-                            fontSize: '11px', 
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            fontSize: '11px',
                             color: 'var(--text-muted)',
                             marginTop: '6px'
                           }}>
@@ -3473,13 +3506,13 @@ function App() {
                           paddingTop: '10px',
                           marginTop: 'auto'
                         }}>
-                          <button 
+                          <button
                             onClick={() => handleCopyUrl(file.url)}
                             className="btn btn-primary btn-sm"
-                            style={{ 
-                              flex: 1, 
-                              display: 'inline-flex', 
-                              alignItems: 'center', 
+                            style={{
+                              flex: 1,
+                              display: 'inline-flex',
+                              alignItems: 'center',
                               justifyContent: 'center',
                               gap: '4px',
                               padding: '6px 0',
@@ -3490,13 +3523,13 @@ function App() {
                             <Copy size={12} />
                             <span>نسخ الرابط</span>
                           </button>
-                          
-                          <a 
-                            href={file.url} 
-                            target="_blank" 
+
+                          <a
+                            href={file.url}
+                            target="_blank"
                             rel="noopener noreferrer"
                             className="btn btn-secondary btn-sm"
-                            style={{ 
+                            style={{
                               padding: '6px 8px',
                               display: 'inline-flex',
                               alignItems: 'center',
@@ -3507,10 +3540,10 @@ function App() {
                             <ExternalLink size={12} />
                           </a>
 
-                          <button 
+                          <button
                             onClick={() => handleDeleteFile(file.name)}
                             className="btn btn-danger btn-sm"
-                            style={{ 
+                            style={{
                               padding: '6px 8px',
                               display: 'inline-flex',
                               alignItems: 'center',
@@ -3534,17 +3567,17 @@ function App() {
                       {mediaSearchTerm ? 'يرجى التحقق من الاسم أو تجربة كلمة أخرى.' : (isAttachmentBucket ? 'اسحب الملفات وأفلتها هنا مباشرة، أو اضغط على الزر في الأعلى لرفع أول مرفق.' : 'اسحب الصور وأفلتها هنا مباشرة، أو اضغط على الزر في الأعلى لرفع أول صورة.')}
                     </p>
                     {!mediaSearchTerm && (
-                      <label 
-                        className="btn btn-primary" 
+                      <label
+                        className="btn btn-primary"
                         style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px' }}
                       >
                         <Upload size={14} />
                         <span>{isAttachmentBucket ? 'اختر مرفق لرفعه' : 'اختر صورة لرفعها'}</span>
-                        <input 
-                          type="file" 
+                        <input
+                          type="file"
                           accept={isAttachmentBucket ? '*/*' : 'image/*'}
-                          onChange={handleUploadFile} 
-                          style={{ display: 'none' }} 
+                          onChange={handleUploadFile}
+                          style={{ display: 'none' }}
                         />
                       </label>
                     )}
@@ -3566,7 +3599,7 @@ function App() {
                     {getYearTitle(selectedStudent.current_year_id)}
                   </span>
                 </div>
-                <button 
+                <button
                   className="modal-close-btn"
                   onClick={() => setStudentDetailOpen(false)}
                 >
@@ -3587,12 +3620,12 @@ function App() {
                       <span>{selectedStudent.phone || 'رقم الهاتف غير مسجل'}</span>
                     </div>
                     {selectedStudent.phone && (
-                      <a 
+                      <a
                         href={getWhatsAppUrl(selectedStudent.phone)}
-                        target="_blank" 
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="btn btn-whatsapp btn-sm"
-                        style={{ 
+                        style={{
                           padding: '4px 10px',
                           borderRadius: '6px',
                           fontSize: '11px',
@@ -3619,18 +3652,18 @@ function App() {
                   <h4 style={{ fontSize: '15px', color: 'var(--text-primary)', marginBottom: '12px', fontWeight: '700' }}>
                     نسبة المشاهدة والتقدم بالكورسات
                   </h4>
-                  
+
                   {getEnrolledCoursesForStudent(selectedStudentId).length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                       {getEnrolledCoursesForStudent(selectedStudentId).map(course => {
                         const progressPct = getLessonCompletionPercentage(selectedStudentId, course.id);
                         const courseLessons = getLessonsForCourse(course.id);
                         const isAccordionActive = activeCourseAccordionId === course.id;
-                        
+
                         return (
-                          <div 
-                            key={course.id} 
-                            className="content-card" 
+                          <div
+                            key={course.id}
+                            className="content-card"
                             style={{ padding: '16px', border: '1px solid var(--border-light)' }}
                           >
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3639,7 +3672,7 @@ function App() {
                             </div>
 
                             <div className="progress-bar-container">
-                              <div 
+                              <div
                                 className={`progress-bar-fill ${progressPct < 40 ? 'warning' : ''}`}
                                 style={{ width: `${progressPct}%` }}
                               ></div>
@@ -3651,7 +3684,7 @@ function App() {
                               </span>
 
                               {courseLessons.length > 0 && (
-                                <button 
+                                <button
                                   className="btn btn-secondary btn-sm"
                                   style={{ padding: '2px 8px', fontSize: '11px' }}
                                   onClick={() => setActiveCourseAccordionId(isAccordionActive ? null : course.id)}
@@ -3703,7 +3736,7 @@ function App() {
             <div className="modal-content" style={{ width: '480px' }}>
               <div className="modal-header">
                 <h3 className="modal-title">إضافة اشتراك يدوي لطالب</h3>
-                <button 
+                <button
                   className="modal-close-btn"
                   onClick={() => setIsNewEnrollModalOpen(false)}
                 >
@@ -3715,9 +3748,9 @@ function App() {
                 {/* Search student to narrow select */}
                 <div className="form-group">
                   <label className="form-label">البحث عن طالب</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
+                  <input
+                    type="text"
+                    className="form-input"
                     placeholder="ابحث بالاسم لتضييق القائمة..."
                     value={enrollStudentSearch}
                     onChange={(e) => setEnrollStudentSearch(e.target.value)}
@@ -3726,7 +3759,7 @@ function App() {
 
                 <div className="form-group">
                   <label className="form-label">اختر الطالب</label>
-                  <select 
+                  <select
                     className="form-select"
                     required
                     value={newEnrollForm.user_id}
@@ -3746,7 +3779,7 @@ function App() {
 
                 <div className="form-group">
                   <label className="form-label">الكورس التعليمي</label>
-                  <select 
+                  <select
                     className="form-select"
                     required
                     value={newEnrollForm.course_id}
@@ -3761,15 +3794,15 @@ function App() {
                 </div>
 
                 <div className="modal-actions">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className="btn btn-secondary"
                     onClick={() => setIsNewEnrollModalOpen(false)}
                   >
                     إلغاء
                   </button>
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="btn btn-primary"
                     disabled={filteredStudentsForEnroll.length === 0}
                   >
@@ -3787,7 +3820,7 @@ function App() {
             <div className="modal-content">
               <div className="modal-header">
                 <h3 className="modal-title">إنشاء كورس جديد</h3>
-                <button 
+                <button
                   className="modal-close-btn"
                   onClick={() => setIsNewCourseModalOpen(false)}
                 >
@@ -3798,9 +3831,9 @@ function App() {
               <form onSubmit={handleCreateCourse} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div className="form-group">
                   <label className="form-label">عنوان الكورس</label>
-                  <input 
-                    type="text" 
-                    className="form-input" 
+                  <input
+                    type="text"
+                    className="form-input"
                     placeholder="مثال: التكاثر في الكائنات الحية"
                     required
                     value={newCourseForm.title}
@@ -3810,7 +3843,7 @@ function App() {
 
                 <div className="form-group">
                   <label className="form-label">الصف الدراسي</label>
-                  <select 
+                  <select
                     className="form-select"
                     value={newCourseForm.year_id}
                     onChange={(e) => setNewCourseForm(prev => ({ ...prev, year_id: e.target.value }))}
@@ -3823,9 +3856,9 @@ function App() {
 
                 <div className="form-group">
                   <label className="form-label">سعر الاشتراك للكورس (EGP - ضع 0 للمجاني)</label>
-                  <input 
-                    type="number" 
-                    className="form-input" 
+                  <input
+                    type="number"
+                    className="form-input"
                     min="0"
                     value={newCourseForm.price}
                     onChange={(e) => setNewCourseForm(prev => ({ ...prev, price: Number(e.target.value) }))}
@@ -3834,9 +3867,9 @@ function App() {
 
                 <div className="form-group">
                   <label className="form-label">رابط الصورة المصغرة (Thumbnail URL)</label>
-                  <input 
-                    type="url" 
-                    className="form-input" 
+                  <input
+                    type="url"
+                    className="form-input"
                     placeholder="رابط الصورة المصغرة للكورس (مثال: https://...)"
                     value={newCourseForm.thumbnail_url}
                     onChange={(e) => setNewCourseForm(prev => ({ ...prev, thumbnail_url: e.target.value }))}
@@ -3845,8 +3878,8 @@ function App() {
 
                 <div className="form-group">
                   <label className="form-label">وصف مختصر</label>
-                  <textarea 
-                    className="form-textarea" 
+                  <textarea
+                    className="form-textarea"
                     placeholder="شرح موجز لمحتويات الكورس..."
                     value={newCourseForm.description}
                     onChange={(e) => setNewCourseForm(prev => ({ ...prev, description: e.target.value }))}
@@ -3854,21 +3887,114 @@ function App() {
                 </div>
 
                 <div className="modal-actions">
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     className="btn btn-secondary"
                     onClick={() => setIsNewCourseModalOpen(false)}
                   >
                     إلغاء
                   </button>
-                  <button 
-                    type="submit" 
+                  <button
+                    type="submit"
                     className="btn btn-primary"
                   >
                     إنشاء والذهاب للمحرر
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* --- PAGE 11: USERS --- */}
+        {activeTab === 'users' && !editingCourseId && (
+          <div>
+            <div className="content-card" style={{ padding: '24px', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
+                <h2 style={{ display: 'flex', alignItems: 'center', gap: '16px', margin: 0 }}>
+                  <div style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)', padding: '12px', borderRadius: '14px', color: '#3B82F6', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+                    <Users size={28} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span style={{ fontSize: '20px', fontWeight: 'bold' }}>إدارة بيانات المستخدمين</span>
+                    <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>تعديل كلمات المرور وإرسالها للطلاب عبر واتساب بسهولة</span>
+                  </div>
+                </h2>
+                
+                <div style={{ display: 'flex', alignItems: 'center', backgroundColor: 'var(--bg-deep)', borderRadius: '12px', padding: '10px 16px', border: '1px solid var(--border-color)', width: '320px', maxWidth: '100%', transition: 'all 0.3s' }}>
+                  <Search size={18} style={{ color: 'var(--text-muted)', marginLeft: '12px' }} />
+                  <input
+                    type="text"
+                    placeholder="ابحث بالاسم أو رقم الهاتف..."
+                    value={studentSearchTerm}
+                    onChange={(e) => setStudentSearchTerm(e.target.value)}
+                    style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', outline: 'none', width: '100%', fontSize: '14px' }}
+                  />
+                </div>
+              </div>
+
+              <div className="recent-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                {currentStudents
+                  .filter(s => (s.full_name?.toLowerCase().includes(studentSearchTerm.toLowerCase()) || s.phone?.includes(studentSearchTerm)))
+                  .map(student => (
+                  <div key={student.id} className="recent-item" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '20px', padding: '20px', backgroundColor: 'var(--bg-deep)', border: '1px solid var(--border-color)', borderRadius: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                      <div className="recent-avatar blue" style={{ width: '48px', height: '48px', borderRadius: '14px', fontSize: '18px', flexShrink: 0 }}>
+                        {student.full_name ? student.full_name[0] : 'ط'}
+                      </div>
+                      <div className="recent-details" style={{ overflow: 'hidden' }}>
+                        <span className="recent-name" style={{ fontSize: '16px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{student.full_name || 'بدون اسم'}</span>
+                        <span className="recent-subtext" style={{ direction: 'ltr', textAlign: 'right', marginTop: '4px', display: 'block', color: 'var(--text-secondary)' }}>{student.phone || 'غير محدد'}</span>
+                      </div>
+                    </div>
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'var(--bg-card)', padding: '12px 16px', borderRadius: '10px', border: '1px solid var(--border-light)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-muted)' }}>
+                        <Key size={16} />
+                        <span style={{ fontSize: '13px', fontWeight: '500' }}>كلمة المرور</span>
+                      </div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '14px', letterSpacing: '1px', color: 'var(--accent-gold)', fontWeight: '600' }}>
+                        {student.password || 'غير محدد'}
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '12px' }}>
+                      <button 
+                        onClick={() => {
+                          const newPass = prompt("أدخل كلمة المرور الجديدة:", student.password);
+                          if (newPass && newPass !== student.password) {
+                            handleUpdatePassword(student.id, newPass);
+                          }
+                        }}
+                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-color)', color: 'var(--text-primary)', padding: '12px', borderRadius: '10px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s' }}
+                        onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)' }}
+                        onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)' }}
+                      >
+                        <Edit3 size={16} />
+                        تعديل
+                      </button>
+                      
+                      {student.phone ? (
+                        <a 
+                          href={`https://wa.me/2${student.phone}?text=${encodeURIComponent('تم تغير كلمه المرور الخاصه بك وكلمه المرور هي ' + student.password)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backgroundColor: 'rgba(37, 211, 102, 0.1)', border: '1px solid rgba(37, 211, 102, 0.2)', color: '#25D366', padding: '12px', borderRadius: '10px', fontSize: '14px', fontWeight: '500', textDecoration: 'none', transition: 'all 0.2s' }}
+                          onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'rgba(37, 211, 102, 0.2)' }}
+                          onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'rgba(37, 211, 102, 0.1)' }}
+                        >
+                          <WhatsAppIcon size={18} />
+                          واتساب
+                        </a>
+                      ) : (
+                        <button disabled style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', backgroundColor: 'transparent', border: '1px dashed var(--border-color)', color: 'var(--text-muted)', padding: '12px', borderRadius: '10px', fontSize: '14px', cursor: 'not-allowed' }}>
+                          لا يوجد رقم
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -3886,15 +4012,15 @@ function App() {
               </div>
 
               <div style={{ padding: '24px' }}>
-                <form 
+                <form
                   onSubmit={handleAddExam}
                   style={{ display: 'flex', flexDirection: 'column', gap: '20px', maxWidth: '600px' }}
                 >
                   <div className="form-group">
                     <label className="form-label">عنوان الامتحان</label>
-                    <input 
-                      type="text" 
-                      className="form-input" 
+                    <input
+                      type="text"
+                      className="form-input"
                       placeholder="اكتب عنوان أو اسم الامتحان هنا..."
                       value={examForm.title}
                       onChange={(e) => setExamForm(prev => ({ ...prev, title: e.target.value }))}
@@ -3904,7 +4030,7 @@ function App() {
 
                   <div className="form-group">
                     <label className="form-label">الصف الدراسي المستهدف</label>
-                    <select 
+                    <select
                       className="form-select"
                       value={examForm.year_id}
                       onChange={(e) => setExamForm(prev => ({ ...prev, year_id: e.target.value }))}
@@ -3919,7 +4045,7 @@ function App() {
 
                   <div className="form-group">
                     <label className="form-label">ملف الامتحان (من المرفقات)</label>
-                    <select 
+                    <select
                       className="form-select"
                       value={examForm.exam_url}
                       onChange={(e) => setExamForm(prev => ({ ...prev, exam_url: e.target.value }))}
@@ -3979,8 +4105,8 @@ function App() {
                           <td>{new Date(exam.created_at).toLocaleDateString('ar-EG')}</td>
                           <td>
                             <div className="actions-cell">
-                              <button 
-                                className="action-btn delete-btn" 
+                              <button
+                                className="action-btn delete-btn"
                                 onClick={() => handleDeleteExam(exam.id)}
                                 title="حذف الامتحان"
                               >
@@ -4024,7 +4150,7 @@ function App() {
                       {allExamSubmissions.map(sub => {
                         const student = liveStudents.find(s => s.id === sub.user_id);
                         const exam = allExams.find(e => e.id === sub.exam_id);
-                        
+
                         // Format phone number for WhatsApp (assuming Egypt +2)
                         let waLink = '#';
                         if (student?.phone) {
@@ -4048,11 +4174,11 @@ function App() {
                             <td>
                               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                 {student?.phone ? (
-                                  <a 
+                                  <a
                                     href={waLink}
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
-                                    className="btn btn-primary" 
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="btn btn-primary"
                                     style={{ padding: '6px 12px', fontSize: '13px', backgroundColor: '#25D366', borderColor: '#25D366', color: '#fff', textDecoration: 'none', display: 'inline-block' }}
                                   >
                                     مراسلة واتساب
@@ -4060,8 +4186,8 @@ function App() {
                                 ) : (
                                   <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>لا يوجد رقم</span>
                                 )}
-                                <button 
-                                  className="action-btn delete-btn" 
+                                <button
+                                  className="action-btn delete-btn"
                                   onClick={() => handleDeleteSubmission(sub.id)}
                                   title="إلغاء تسليم الطالب"
                                 >
