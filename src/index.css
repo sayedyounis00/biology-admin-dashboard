@@ -1451,13 +1451,62 @@ body {
 
   /* Tables */
   .table-container {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
     margin-top: 16px;
+    background: transparent;
+    border: none;
+    box-shadow: none;
   }
 
   .dashboard-table {
-    min-width: 700px;
+    min-width: 100%;
+    display: block;
+  }
+
+  .dashboard-table thead {
+    display: none;
+  }
+
+  .dashboard-table tbody {
+    display: block;
+  }
+
+  .dashboard-table tr {
+    display: flex;
+    flex-direction: column;
+    background-color: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    margin-bottom: 16px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+
+  .dashboard-table td {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 8px 0 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    text-align: right;
+  }
+
+  .dashboard-table td:last-child {
+    border-bottom: none !important;
+    align-items: center;
+    margin-top: 8px;
+    padding-bottom: 0 !important;
+  }
+
+  .dashboard-table td:last-child > div {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .dashboard-table td:last-child button,
+  .dashboard-table td:last-child a.btn {
+    flex: 1;
+    justify-content: center;
   }
 
   /* Cards & Forms */
